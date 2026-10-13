@@ -73,7 +73,7 @@ import javax.inject.Inject
    busy.value=true;speechState.value="thinking"
    try {
     dao.put(Message(conversationId=id,role="user",content=text.trim()))
-    val list=dao.messageList(id)
+    val list=dao.messageList(id).filter {it.state=="complete"}
     if(list.count {it.role=="user"}==1) dao.put(Conversation(id=id,title=text.take(22)))
     val command=if(chosenSkill?.executor=="prompt") Command.Chat else CommandParser.parse(text)
     val required=when(command) {is Command.Remember->"remember";is Command.Recall->"recall";is Command.Focus->"focus";Command.Review->"review";Command.Card->"card";Command.Encourage->"encourage";else->null}
@@ -90,15 +90,15 @@ import javax.inject.Inject
       val instruction=when(command) {Command.Review->"根据用户今天的对话做简短回顾。今天的对话："+dao.recentMessages().filter {it.created>=java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()}.reversed().joinToString("\n") {it.content.take(300)};Command.Encourage->"结合用户心情给出温柔具体的鼓励。";else->chosenSkill?.body.orEmpty()}
       val system=MemoryContext.system(pref,memoryList,text,instruction)
       val responseId=newId();var assembled=""
-      dao.put(Message(id=responseId,conversationId=id,role="assistant",content=""))
-      ai.stream(config,credentials.get(config.id),listOf("system" to system)+list.takeLast(16).map {it.role to it.content.take(2000)}).collect {delta->assembled+=delta;dao.put(Message(id=responseId,conversationId=id,role="assistant",content=assembled))}
-      check(assembled.isNotBlank()) {"模型没有返回文字，请重试"}
+      dao.put(Message(id=responseId,conversationId=id,role="assistant",content="",state="streaming"))
+      ai.stream(config,credentials.get(config.id),listOf("system" to system)+list.takeLast(16).map {it.role to it.content.take(2000)}).collect {delta->assembled+=delta;dao.put(Message(id=responseId,conversationId=id,role="assistant",content=assembled,state="streaming"))}
+      check(assembled.isNotBlank()) {"模型没有返回文字，请重试"};dao.put(Message(id=responseId,conversationId=id,role="assistant",content=assembled))
       if(pref.memoryEnabled && command is Command.Chat && chosenSkill==null) extractMemory(id,text,assembled)
       assembled
      }
     }
     if(dao.messageList(id).lastOrNull()?.role!="assistant") dao.put(Message(conversationId=id,role="assistant",content=response))
-   } catch(e:CancellationException) {throw e} catch(e:Exception) {notify(e.message ?: "没有完成，请重试")} finally {busy.value=false;speechState.value="idle"}
+   } catch(e:CancellationException) {withContext(NonCancellable) {dao.messageList(id).lastOrNull()?.takeIf {it.role=="assistant" && it.state=="streaming"}?.let {dao.put(it.copy(content=it.content.ifBlank {"已停止生成。"},state="cancelled"))}};throw e} catch(e:Exception) {val message=e.message ?: "没有完成，请重试";dao.messageList(id).lastOrNull()?.takeIf {it.role=="assistant" && it.state=="streaming"}?.let {dao.put(it.copy(content=it.content.ifBlank {message},state="error"))};notify(message)} finally {busy.value=false;speechState.value="idle"}
   }
  }
  private fun extractMemory(id:String,user:String,answer:String) {

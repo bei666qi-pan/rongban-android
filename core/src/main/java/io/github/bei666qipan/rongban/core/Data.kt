@@ -13,7 +13,7 @@ import java.util.UUID
 
 fun newId() = UUID.randomUUID().toString()
 @Entity data class Conversation(@PrimaryKey val id:String=newId(),val title:String="新的相遇",val created:Long=System.currentTimeMillis())
-@Entity(indices=[Index("conversationId")]) data class Message(@PrimaryKey val id:String=newId(),val conversationId:String,val role:String,val content:String,val created:Long=System.currentTimeMillis())
+@Entity(indices=[Index("conversationId")]) data class Message(@PrimaryKey val id:String=newId(),val conversationId:String,val role:String,val content:String,val state:String="complete",val created:Long=System.currentTimeMillis())
 // RikkaHub memory_file storage adapted to discrete, user-reviewable memories.
 @Entity data class Memory(@PrimaryKey val id:String=newId(),val title:String,val content:String,val aliases:String="",val kind:String="preference",val source:String="手动记录",val sourceConversationId:String="",val enabled:Boolean=true,val pending:Boolean=false,val updated:Long=System.currentTimeMillis())
 @Entity data class Skill(@PrimaryKey val id:String,val name:String,val description:String,val body:String,val executor:String="prompt",val enabled:Boolean=true,val builtin:Boolean=false)
