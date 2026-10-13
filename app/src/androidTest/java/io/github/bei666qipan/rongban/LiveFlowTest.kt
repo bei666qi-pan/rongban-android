@@ -33,7 +33,7 @@ import java.io.File
   ui.onAllNodesWithText("新的相遇").onFirst().performClick()
   ui.onNodeWithTag("chat-input").performTextInput("根据你记得的我的偏好，给我一个下午休息的建议。请用一句话回答。")
   ui.onNodeWithText("发送").performClick()
-  ui.waitUntil(90000) {ui.onAllNodesWithText("朗读").fetchSemanticsNodes().isNotEmpty() && ui.onAllNodesWithText("绒伴正在回应").fetchSemanticsNodes().isEmpty()}
+  ui.waitUntil(90000) {ui.onAllNodesWithText("朗读").fetchSemanticsNodes().isNotEmpty() && ui.onAllNodesWithText("绒伴正在回应",substring=true).fetchSemanticsNodes().isEmpty()}
   ui.onAllNodesWithText("绒伴 · 请求未完成").assertCountEquals(0)
   screenshot("context-chat")
   ui.onAllNodesWithText("做成卡片").onLast().performClick()
