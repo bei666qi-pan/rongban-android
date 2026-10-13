@@ -51,8 +51,8 @@ import java.util.zip.ZipOutputStream
     var title by rememberSaveable(card.id) {mutableStateOf(card.title)};var body by rememberSaveable(card.id) {mutableStateOf(card.body)};var template by rememberSaveable(card.id) {mutableStateOf(card.template)}
     val draft=card.copy(title=title,body=body,template=template)
     var preview by remember {mutableStateOf<android.graphics.Bitmap?>(null)}
-    LaunchedEffect(title,body,template) {delay(250);val old=preview;preview=runCatching {withContext(Dispatchers.Default) {CardRenderer.render(draft,p)}}.getOrNull();old?.recycle()}
-    DisposableEffect(Unit) {onDispose {preview?.recycle()}}
+    LaunchedEffect(title,body,template) {delay(250);preview=runCatching {withContext(Dispatchers.Default) {CardRenderer.render(draft,p)}}.getOrNull()}
+    
     LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
      item {Row(verticalAlignment=Alignment.CenterVertically) {TextButton(onClick={vm.save(draft);editing=null}) {Text("‹ 工作室")};Text("卡片预览",Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)}}
      item {preview?.let {Image(it.asImageBitmap(),"导出图片预览",Modifier.fillMaxWidth().height(320.dp))}}

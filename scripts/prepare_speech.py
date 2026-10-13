@@ -15,6 +15,8 @@ def fetch(job):
   tmp=Path(td);archive=tmp/'asset.tar.bz2';print(name+': downloading',flush=True)
   urllib.request.urlretrieve(url,archive)
   digest=hashlib.sha256(archive.read_bytes()).hexdigest()
+  expected=ROOT/'third_party/speech-downloads'/(name+'.json')
+  if expected.exists() and json.loads(expected.read_text())['sha256']!=digest: raise RuntimeError(name+': upstream checksum changed')
   with tarfile.open(archive) as tar: tar.extractall(tmp,filter='data')
   if name=='runtime':
    for abi in ['arm64-v8a','x86_64']:
@@ -26,6 +28,7 @@ def fetch(job):
    model=next(tmp.rglob('encoder.int8.onnx' if name=='asr' else 'model.onnx')).parent
    shutil.copytree(model,dest,dirs_exist_ok=True)
    shutil.rmtree(dest/'test_wavs',ignore_errors=True)
+   if name=='tts': (dest/'rule.far').unlink(missing_ok=True)
   meta=ROOT/'third_party/speech-downloads';meta.mkdir(parents=True,exist_ok=True)
   (meta/(name+'.json')).write_text(json.dumps({'url':url,'sha256':digest},indent=2))
   print(name+': ready',flush=True)

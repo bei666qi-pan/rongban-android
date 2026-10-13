@@ -33,7 +33,7 @@ import javax.inject.Inject
    for(skill in BuiltinSkills.all) if(dao.skillList().none { it.id==skill.id }) dao.put(skill)
    val file=File(context.filesDir,"credential-once.json")
    if(context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE!=0 && file.exists()) {
-    try { val obj=Json.parseToJsonElement(file.readText()).jsonObject;credentials.put(obj["id"]!!.jsonPrimitive.content,obj["key"]!!.jsonPrimitive.content) } finally { file.delete() }
+    try { val obj=Json.parseToJsonElement(file.readText()).jsonObject;credentials.put(obj["id"]!!.jsonPrimitive.content,obj["key"]!!.jsonPrimitive.content);val name=obj["studentName"]?.jsonPrimitive?.contentOrNull.orEmpty();val number=obj["studentNumber"]?.jsonPrimitive?.contentOrNull.orEmpty();if(name.isNotBlank() && number.isNotBlank()) settings.update {it.copy(studentName=name,studentNumber=number)} } finally { file.delete() }
    };ready.value=true
   }
  }
