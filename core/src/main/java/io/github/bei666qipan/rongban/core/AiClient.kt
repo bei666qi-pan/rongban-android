@@ -13,8 +13,10 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-@Singleton class AiClient @Inject constructor() {
- private val client=OkHttpClient.Builder().connectTimeout(15,TimeUnit.SECONDS).readTimeout(90,TimeUnit.SECONDS).callTimeout(120,TimeUnit.SECONDS).build()
+@Singleton class AiClient {
+ private val client:OkHttpClient
+ @Inject constructor() {client=OkHttpClient.Builder().connectTimeout(15,TimeUnit.SECONDS).readTimeout(90,TimeUnit.SECONDS).callTimeout(120,TimeUnit.SECONDS).build()}
+ internal constructor(client:OkHttpClient) {this.client=client}
  fun stream(config:ProviderConfig,key:String,messages:List<Pair<String,String>>):Flow<String> = callbackFlow {
   require(key.isNotBlank()) {"请先在「我的」页面填写 API Key"}
   val request=ProtocolAdapter.request(config,key,messages)

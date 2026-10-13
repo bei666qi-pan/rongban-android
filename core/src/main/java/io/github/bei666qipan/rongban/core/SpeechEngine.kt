@@ -23,7 +23,7 @@ class SpeechEngine(private val context:Context) {
   return OnlineRecognizer(context.assets,OnlineRecognizerConfig(modelConfig=OnlineModelConfig(transducer=OnlineTransducerModelConfig("$base/encoder.int8.onnx","$base/decoder.onnx","$base/joiner.int8.onnx"),tokens="$base/tokens.txt",numThreads=2,modelingUnit="cjkchar"),decodingMethod="modified_beam_search",hotwordsFile="command-hotwords.txt",hotwordsScore=3f))
  }
  @SuppressLint("MissingPermission")
- suspend fun listen(onPartial:(String)->Unit):String=mutex.withLock { withContext(Dispatchers.Default) {
+ suspend fun listen(onPartial:(String)->Unit,onStarted:()->Unit={}):String=mutex.withLock { withContext(Dispatchers.Default) {
   check(ContextCompat.checkSelfPermission(context,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) { "请允许麦克风，或使用文字输入" }
   stopped.set(false)
   val recognizer=recognizer()
@@ -32,7 +32,7 @@ class SpeechEngine(private val context:Context) {
    val size=AudioRecord.getMinBufferSize(16000,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT).coerceAtLeast(3200)
    val recorder=AudioRecord(MediaRecorder.AudioSource.MIC,16000,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT,size*2)
    mic=recorder;check(recorder.state==AudioRecord.STATE_INITIALIZED) { "麦克风暂时不可用，请改用文字输入" }
-   recorder.startRecording();val buffer=ShortArray(1600);val start=System.currentTimeMillis()
+   ensureActive();if(stopped.get()) throw CancellationException("Recording stopped");recorder.startRecording();withContext(Dispatchers.Main) {onStarted()};val buffer=ShortArray(1600);val start=System.currentTimeMillis()
    while(isActive && !stopped.get() && System.currentTimeMillis()-start<30000) {
     val count=recorder.read(buffer,0,buffer.size)
     if(count<=0) break

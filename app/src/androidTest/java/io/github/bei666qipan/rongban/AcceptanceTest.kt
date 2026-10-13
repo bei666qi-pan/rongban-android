@@ -15,7 +15,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class) class AcceptanceTest {
  @get:Rule val ui=createAndroidComposeRule<MainActivity>()
- @Test fun nativeChineseSpeechRoundtripAndCardPagination()=runBlocking {
+ @Test fun nativeChineseSpeechFixtureAndCardPagination()=runBlocking {
   val context=InstrumentationRegistry.getInstrumentation().targetContext
   val b="models/tts"
   val tts=OfflineTts(context.assets,OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="$b/model.onnx",lexicon="$b/lexicon.txt",tokens="$b/tokens.txt"),numThreads=2),ruleFsts="$b/phone.fst,$b/date.fst,$b/number.fst"))
@@ -35,7 +35,7 @@ import org.junit.runner.RunWith
   val pcm=FloatArray(length/2) {i->buffer.getShort(start+i*2)/32768f}
   val result=SpeechEngine(context).recognizePcm(pcm)
   android.util.Log.i("RongbanAcceptance","Upstream human speech transcript: $result")
-  assertTrue(result,result.length>=6)
+  assertTrue(result,result.contains("对我的研究感兴趣"))
   val card=CardDraft(title="本地分页测试",body="这是一条保留中文与长文的真实测试内容。\n".repeat(100))
   val pages=CardRenderer.pageRanges(card.body);assertTrue(pages.size>1)
   assertEquals(card.body,pages.joinToString("") {r->card.body.substring(r.first,r.last+1)})

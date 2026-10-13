@@ -10,20 +10,20 @@ sealed interface Command {
  data object Review:Command
  data object Card:Command
  data object Encourage:Command
- data class Missing(val hint:String):Command
+ data class Missing(val hint:String,val resumePrefix:String=""):Command
  data object Chat:Command
 }
 object CommandParser {
  fun parse(raw:String):Command {
   val text=raw.trim().trimEnd('。','！','!')
   val remember=Regex("^(?:请)?(?:帮我)?(?:记住|记一下|记下来|记得)[：:，, ]*(.*)$").matchEntire(text)
-  if(remember!=null) return remember.groupValues[1].takeIf { it.isNotBlank() }?.let(Command::Remember) ?: Command.Missing("你想让我记住什么？")
+  if(remember!=null) return remember.groupValues[1].takeIf { it.isNotBlank() }?.let(Command::Remember) ?: Command.Missing("你想让我记住什么？","记住：")
   val recall=Regex("^(?:帮我)?(?:回忆|回顾记忆|你还记得|记忆搜索)[：:，, ]*(.*)$").matchEntire(text)
   if(recall!=null) return Command.Recall(recall.groupValues[1])
   if(text.contains("专注") || text.contains("番茄钟")) {
    val numeric=Regex("(\\d+|[零一二两三四五六七八九十百]+)\\s*分钟").find(text)?.groupValues?.get(1)
    val minutes=numeric?.toIntOrNull() ?: numeric?.let(::chineseNumber) ?: 25
-   return if(minutes in 1..180) Command.Focus(minutes,text.replace(Regex("开始|专注|番茄钟|[0-9零一二两三四五六七八九十百]+分钟|[，, ]"),"").ifBlank { "陪你专注" }) else Command.Missing("专注时长请设在 1 到 180 分钟之间。")
+   return if(minutes in 1..180) Command.Focus(minutes,text.replace(Regex("开始|专注|番茄钟|[0-9零一二两三四五六七八九十百]+分钟|[，, ]"),"").ifBlank { "陪你专注" }) else Command.Missing("专注时长请设在 1 到 180 分钟之间。","开始专注")
   }
   return when {
    text in listOf("今日回顾","总结今天","回顾今天") -> Command.Review
@@ -31,6 +31,12 @@ object CommandParser {
    text in listOf("鼓励我","陪陪我","鼓励陪伴") -> Command.Encourage
    else -> Command.Chat
   }
+ }
+ fun continueWith(pending:Command.Missing,reply:String):Command {
+  val direct=parse(reply)
+  if(direct !is Command.Chat || pending.resumePrefix.isBlank()) return direct
+  val suffix=if(pending.resumePrefix=="开始专注" && !reply.contains("分钟")) "分钟" else ""
+  return parse(pending.resumePrefix+reply+suffix)
  }
  private fun chineseNumber(s:String):Int {
   val digits=mapOf('零' to 0,'一' to 1,'二' to 2,'两' to 2,'三' to 3,'四' to 4,'五' to 5,'六' to 6,'七' to 7,'八' to 8,'九' to 9)

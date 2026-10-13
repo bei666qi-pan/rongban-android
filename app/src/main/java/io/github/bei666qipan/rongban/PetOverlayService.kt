@@ -1,6 +1,10 @@
 package io.github.bei666qipan.rongban
 
 import android.animation.ValueAnimator
+import android.animation.ObjectAnimator
+import io.github.bei666qipan.rongban.core.CompanionState
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collectLatest
 import android.app.*
 import android.content.Intent
 import android.graphics.PixelFormat
@@ -16,9 +20,12 @@ class PetOverlayService:Service() {
  private lateinit var windows:WindowManager
  private var pet:ImageView?=null
  private var paused=false
+ private val scope=CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
+ private var breathing:ObjectAnimator?=null
+ private fun animatePet(state:String) {val image=pet ?: return;breathing?.cancel();image.contentDescription="绒伴桌宠：$state";if(paused || state=="sleep") {image.alpha=.6f;return};image.alpha=1f;breathing=ObjectAnimator.ofFloat(image,"scaleY",1f,1.045f,1f).apply {duration=if(state in listOf("listening","speaking")) 800 else if(state in listOf("thinking","preparing")) 1200 else 2800;repeatCount=ValueAnimator.INFINITE;start()}}
  override fun onBind(intent:Intent?):IBinder?=null
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int {
-  when(intent?.action) { "stop"->{stopSelf();return START_NOT_STICKY};"pause"->{paused=!paused;pet?.alpha=if(paused) .5f else 1f;startForeground(31,notification());return START_NOT_STICKY} }
+  when(intent?.action) { "stop"->{stopSelf();return START_NOT_STICKY};"pause"->{paused=!paused;animatePet(CompanionState.emotion.value);startForeground(31,notification());return START_NOT_STICKY} }
   if(!Settings.canDrawOverlays(this)) { stopSelf();return START_NOT_STICKY }
   val manager=getSystemService(NotificationManager::class.java)
   manager.createNotificationChannel(NotificationChannel("companion","桌宠陪伴",NotificationManager.IMPORTANCE_LOW))
@@ -48,7 +55,7 @@ class PetOverlayService:Service() {
     }
    };true
   }
-  try { windows.addView(image,params);pet=image } catch(e:WindowManager.BadTokenException) { stopSelf() } catch(e:SecurityException) { stopSelf() }
+  try { windows.addView(image,params);pet=image;scope.launch {CompanionState.emotion.collectLatest {animatePet(it)}} } catch(e:WindowManager.BadTokenException) { stopSelf() } catch(e:SecurityException) { stopSelf() }
  }
- override fun onDestroy() { pet?.let { runCatching { windows.removeView(it) } };pet=null;super.onDestroy() }
+ override fun onDestroy() { breathing?.cancel();scope.cancel();pet?.let { runCatching { windows.removeView(it) } };pet=null;super.onDestroy() }
 }

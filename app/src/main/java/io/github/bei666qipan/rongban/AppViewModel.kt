@@ -21,7 +21,7 @@ import javax.inject.Inject
  val skills=dao.skills().stateIn(viewModelScope,SharingStarted.WhileSubscribed(5000),emptyList())
  val active=MutableStateFlow<String?>(null)
  val busy=MutableStateFlow(false)
- val speechState=MutableStateFlow("idle")
+ val speechState=CompanionState.emotion
  val voiceText=MutableStateFlow("")
  val recognizedText=MutableStateFlow("")
  val status=MutableStateFlow<String?>(null)
@@ -29,6 +29,7 @@ import javax.inject.Inject
  private val speech=SpeechEngine(context)
  private var request:Job?=null
  private var voice:Job?=null
+ private val pendingCommands=mutableMapOf<String,Command.Missing>()
  init {
   viewModelScope.launch {
    for(skill in BuiltinSkills.all) if(dao.skillList().none { it.id==skill.id }) dao.put(skill)
@@ -42,7 +43,7 @@ import javax.inject.Inject
  fun updatePreferences(block:(Preferences)->Preferences) {viewModelScope.launch {settings.update(block)}}
  fun createConversation(after:(String)->Unit) {viewModelScope.launch {val c=Conversation();dao.put(c);active.value=c.id;after(c.id)}}
  fun removeConversation(c:Conversation) {viewModelScope.launch {dao.deleteConversation(c.id);if(active.value==c.id) active.value=null}}
- fun saveMemory(m:Memory) {viewModelScope.launch {val same=dao.memoryList().firstOrNull {it.id!=m.id && it.content.trim()==m.content.trim()};if(same!=null) notify("这件事已经在记忆里了") else {dao.put(m.copy(source=if(dao.memoryList().firstOrNull {it.id==m.id}?.pending==true) "AI 提取，用户已确认" else m.source,updated=System.currentTimeMillis()));notify("记忆已保存")}}}
+ fun saveMemory(m:Memory) {viewModelScope.launch {val records=dao.memoryList();val previous=records.firstOrNull {it.id==m.id};val same=records.firstOrNull {it.id!=m.id && it.content.trim()==m.content.trim()};if(same!=null) notify("这件事已经在记忆里了") else {if(previous!=null && previous.kind!="summary" && (previous.content!=m.content || previous.enabled!=m.enabled)) records.filter {it.kind=="summary"}.forEach {dao.deleteMemory(it.id)};dao.put(m.copy(source=if(previous?.pending==true) "AI 提取，用户已确认" else m.source,updated=System.currentTimeMillis()));notify("记忆已保存")}}}
  fun forget(m:Memory) {viewModelScope.launch {dao.deleteMemory(m.id);dao.memoryList().filter {it.kind=="summary"}.forEach {dao.deleteMemory(it.id)};notify("这条记忆已移除，后续相遇不再引用")}}
  fun saveSkill(s:Skill) {viewModelScope.launch {dao.put(s);notify("技能已保存")}}
  fun importSkill(content:String) {viewModelScope.launch {runCatching {BuiltinSkills.parse(content)}.onSuccess {dao.put(it);notify("技能已导入")}.onFailure {notify(it.message ?: "技能格式无法识别")}}}
@@ -55,8 +56,8 @@ import javax.inject.Inject
   if(speechState.value=="listening") {speech.stop();return}
   stopSpeech();voiceText.value=""
   voice=viewModelScope.launch {
-   speechState.value="listening"
-   try {val result=speech.listen {voiceText.value=it};if(result.isBlank()) notify("没有听清，可以再试一次或输入文字") else {recognizedText.value=result;notify("识别完成，可以编辑后发送")}} catch(e:CancellationException) {throw e} catch(e:Exception) {notify(e.message ?: "语音不可用，请用文字输入")} finally {speechState.value="idle"}
+   speechState.value="preparing"
+   try {val result=speech.listen(onPartial={voiceText.value=it},onStarted={speechState.value="listening"});if(result.isBlank()) notify("没有听清，可以再试一次或输入文字") else {recognizedText.value=result;notify("识别完成，可以编辑后发送")}} catch(e:CancellationException) {throw e} catch(e:Exception) {notify(e.message ?: "语音不可用，请用文字输入")} finally {speechState.value="idle"}
   }
  }
  fun speak(text:String) {stopSpeech();voice=viewModelScope.launch {speechState.value="speaking";try {speech.speak(text)} catch(e:CancellationException) {throw e} catch(e:Exception) {notify("朗读暂时不可用，请阅读文字")} finally {speechState.value="idle"}}}
@@ -76,7 +77,8 @@ import javax.inject.Inject
     dao.put(Message(conversationId=id,role="user",content=text.trim()))
     val list=dao.messageList(id).filter {it.state=="complete"}
     if(list.count {it.role=="user"}==1) dao.put(Conversation(id=id,title=text.take(22)))
-    val command=if(chosenSkill?.executor=="prompt") Command.Chat else CommandParser.parse(text)
+    val command=if(chosenSkill?.executor=="prompt") Command.Chat else pendingCommands.remove(id)?.let {CommandParser.continueWith(it,text)} ?: CommandParser.parse(text)
+    if(command is Command.Missing) pendingCommands[id]=command
     val required=when(command) {is Command.Remember->"remember";is Command.Recall->"recall";is Command.Focus->"focus";Command.Review->"review";Command.Card->"card";Command.Encourage->"encourage";else->null}
     val disabled=required!=null && dao.skillList().none {it.id==required && it.enabled}
     val response=if(disabled) "这个技能已关闭，你可以在技能页重新开启。" else when(command) {

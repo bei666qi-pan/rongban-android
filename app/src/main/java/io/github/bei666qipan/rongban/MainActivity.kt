@@ -136,12 +136,13 @@ import java.time.format.DateTimeFormatter
    items(messages,key={it.id}) {m->Column(Modifier.fillMaxWidth(),horizontalAlignment=if(m.role=="user") Alignment.End else Alignment.Start) {Text(if(m.role=="user") "你" else if(m.state=="cancelled") "绒伴 · 已停止" else if(m.state=="error") "绒伴 · 请求未完成" else "绒伴",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary);Surface(shape=RoundedCornerShape(22.dp),color=if(m.role=="user") MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,modifier=Modifier.padding(top=5.dp).widthIn(max=330.dp)) {Text(m.content.ifBlank {"正在想一想……"},Modifier.padding(18.dp),style=MaterialTheme.typography.bodyLarge)};if(m.state in listOf("error","cancelled")) TextButton(onClick={messages.lastOrNull {it.role=="user"}?.let {vm.send(id,it.content)}}) {Text("重试")}
 if(m.role=="assistant" && m.content.isNotBlank()) Row {TextButton(enabled=m.state!="streaming",onClick={vm.speak(m.content)}) {Text("朗读")};TextButton(enabled=m.state!="streaming",onClick={vm.saveCard("这一段相遇",m.content);onCards()}) {Text("做成卡片")}}}}
   }
+  AnimatedVisibility(speech=="preparing") {Text("正在准备本地语音，出现「正在听」后再说话。",Modifier.padding(20.dp),color=MaterialTheme.colorScheme.primary)}
   AnimatedVisibility(speech=="listening") {Text(partial.ifBlank {"正在听，停顿后自动完成，最多 30 秒。"},Modifier.padding(horizontal=20.dp,vertical=8.dp),color=MaterialTheme.colorScheme.primary)}
   if(busy) Row(Modifier.padding(horizontal=20.dp),verticalAlignment=Alignment.CenterVertically) {CircularProgressIndicator(Modifier.size(16.dp),strokeWidth=2.dp);Text(" 绒伴正在回应",Modifier.weight(1f),style=MaterialTheme.typography.labelMedium);TextButton(onClick=vm::cancel) {Text("停止")}}
   Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
    OutlinedTextField(text,{text=it},placeholder={Text("告诉绒伴……")},modifier=Modifier.weight(1f).testTag("chat-input"),maxLines=4,shape=RoundedCornerShape(26.dp))
-   FilledTonalIconButton(onClick={if(speech=="speaking") vm.stopSpeech() else onVoice()},enabled=!busy) {Text(if(speech=="listening" || speech=="speaking") "■" else "◉")}
-   Button(onClick={val value=text;text="";vm.send(id,value)},enabled=text.isNotBlank() && !busy,contentPadding=PaddingValues(12.dp)) {Text("发送")}
+   FilledTonalIconButton(onClick={if(speech=="speaking") vm.stopSpeech() else onVoice()},enabled=!busy && speech!="preparing") {Text(if(speech=="listening" || speech=="speaking") "■" else "◉")}
+   Button(onClick={val value=text;text="";vm.send(id,value)},enabled=text.isNotBlank() && !busy && speech!="listening" && speech!="preparing",contentPadding=PaddingValues(12.dp)) {Text("发送")}
   }
  }
 }

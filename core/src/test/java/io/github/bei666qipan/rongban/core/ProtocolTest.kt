@@ -4,8 +4,26 @@ import org.junit.Test
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
+import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.SocketPolicy
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.toList
 class ProtocolTest {
+ @Test fun cancellationClosesCollectorAndTimeoutRemainsActionable()=runBlocking {
+  val server=MockWebServer();server.start()
+  try {
+   val config=ProviderConfig(baseUrl=server.url("/v1").toString())
+   server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+   val job=launch {AiClient().complete(config,"test",listOf("user" to "hello"))}
+   withContext(Dispatchers.IO) {check(server.takeRequest(3,TimeUnit.SECONDS)!=null)}
+   withTimeout(2000) {job.cancelAndJoin()};assertTrue(job.isCancelled)
+   server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+   val client=OkHttpClient.Builder().readTimeout(150,TimeUnit.MILLISECONDS).callTimeout(300,TimeUnit.MILLISECONDS).build()
+   val error=runCatching {AiClient(client).complete(config,"test",listOf("user" to "hello"))}.exceptionOrNull()
+   assertTrue(error?.message.orEmpty().contains("本地技能仍可使用"))
+  } finally {server.shutdown()}
+ }
  @Test fun allProtocolsExtractOnlyVisibleText() {
   assertEquals("你好",ProtocolAdapter.decode("openai",null,"""{"choices":[{"delta":{"content":"你好","reasoning_content":"private"}}]}"""))
   assertEquals("欢迎",ProtocolAdapter.decode("anthropic","content_block_delta","""{"delta":{"type":"text_delta","text":"欢迎"}}"""))

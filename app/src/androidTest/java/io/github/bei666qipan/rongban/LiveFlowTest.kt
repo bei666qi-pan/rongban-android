@@ -40,6 +40,7 @@ import java.io.File
   ui.waitUntil(15000) {ui.onAllNodesWithText("卡片工作室").fetchSemanticsNodes().isNotEmpty()}
   ui.onAllNodesWithText("这一段相遇").onFirst().performClick()
   ui.waitUntil(15000) {ui.onAllNodesWithText("卡片预览").fetchSemanticsNodes().isNotEmpty()}
+  ui.waitUntil(15000) {ui.onAllNodesWithContentDescription("导出图片预览").fetchSemanticsNodes().isNotEmpty()}
   screenshot("card-preview")
   ui.onNodeWithText("分享到其他 App").performScrollTo().performClick()
   Thread.sleep(2000)

@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.bei666qipan.rongban.core.*
 import kotlinx.coroutines.*
@@ -52,17 +53,26 @@ import java.util.zip.ZipOutputStream
     var title by rememberSaveable(card.id) {mutableStateOf(card.title)};var body by rememberSaveable(card.id) {mutableStateOf(card.body)};var template by rememberSaveable(card.id) {mutableStateOf(card.template)}
     val draft=card.copy(title=title,body=body,template=template)
     var preview by remember {mutableStateOf<android.graphics.Bitmap?>(null)}
-    LaunchedEffect(title,body,template) {delay(250);preview=runCatching {withContext(Dispatchers.Default) {CardRenderer.render(draft,p)}}.getOrNull()}
+    var previewPage by rememberSaveable(card.id) {mutableIntStateOf(0)}
+    var previewError by remember {mutableStateOf<String?>(null)}
+    val pageCount=remember(body) {CardRenderer.pageRanges(body).size}
+    LaunchedEffect(title,body,template,previewPage,p.studentName,p.studentNumber) {
+     delay(250)
+     previewPage=previewPage.coerceIn(0,pageCount-1)
+     try {preview=withContext(Dispatchers.Default) {CardRenderer.render(draft,p,previewPage)};previewError=null}
+     catch(e:CancellationException) {throw e}
+     catch(e:Exception) {preview=null;previewError=e.message ?: "预览失败，请精简内容后重试"}
+    }
     
     LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
      item {Row(verticalAlignment=Alignment.CenterVertically) {TextButton(onClick={vm.save(draft);editing=null}) {Text("‹ 工作室")};Text("卡片预览",Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)}}
-     item {preview?.let {Image(it.asImageBitmap(),"导出图片预览",Modifier.fillMaxWidth().height(320.dp))}}
-     item {Text("${CardRenderer.pageRanges(body).size} 张图片 · 1080 × 1440",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)}
+     item {preview?.let {Image(it.asImageBitmap(),"导出图片预览",Modifier.fillMaxWidth().height(320.dp))} ?: Text(previewError ?: "正在生成预览……",color=MaterialTheme.colorScheme.primary)}
+     item {Row(verticalAlignment=Alignment.CenterVertically) {Text("${previewPage+1} / $pageCount · 1080 × 1440",Modifier.weight(1f),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary);if(pageCount>1) {TextButton(enabled=previewPage>0,onClick={previewPage--}) {Text("上一页")};TextButton(enabled=previewPage<pageCount-1,onClick={previewPage++}) {Text("下一页")}}}}
      item {Row(Modifier.horizontalScroll(rememberScrollState())) {listOf("conversation" to "对话摘录","memory" to "记忆便签","review" to "今日回顾").forEach {(key,label)->FilterChip(template==key,{template=key},label={Text(label)})}}}
-     item {OutlinedTextField(title,{title=it},label={Text("标题")},modifier=Modifier.fillMaxWidth())}
-     item {OutlinedTextField(body,{body=it},label={Text("卡片内容")},modifier=Modifier.fillMaxWidth(),minLines=4,maxLines=10)}
+     item {OutlinedTextField(title,{title=it},label={Text("标题")},modifier=Modifier.fillMaxWidth().testTag("card-title"))}
+     item {OutlinedTextField(body,{body=it},label={Text("卡片内容")},modifier=Modifier.fillMaxWidth().testTag("card-body"),minLines=4,maxLines=10)}
      item {Row {TextButton(enabled=!busy && body.isNotBlank(),onClick={vm.summarize(draft) {body=it;vm.save(draft.copy(body=it))}}) {Text(if(busy) "正在整理……" else "AI 精简")};TextButton(onClick={vm.save(draft);vm.status.value="草稿已保存"}) {Text("保存草稿")}}}
-     item {Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {Button(enabled=!exporting && body.isNotBlank(),onClick={vm.save(draft);export(draft,true)},modifier=Modifier.weight(1f)) {Text("分享到其他 App")};FilledTonalButton(enabled=!exporting && body.isNotBlank(),onClick={vm.save(draft);export(draft,false)},modifier=Modifier.weight(1f)) {Text("保存图片")}}}
+     item {Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {Button(enabled=!exporting && body.isNotBlank() && body.length<=20000,onClick={vm.save(draft);export(draft,true)},modifier=Modifier.weight(1f)) {Text("分享到其他 App")};FilledTonalButton(enabled=!exporting && body.isNotBlank() && body.length<=20000,onClick={vm.save(draft);export(draft,false)},modifier=Modifier.weight(1f)) {Text("保存图片")}}}
      item {Text("长文自动分页，保存为包含 PNG 的 ZIP。分享前请检查内容。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
     }
    } else LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(24.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {

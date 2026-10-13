@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Alignment
 import com.airbnb.lottie.compose.*
 
+object CompanionState { val emotion=kotlinx.coroutines.flow.MutableStateFlow("idle") }
+
 val Sage = Color(0xFF718875)
 val Cream = Color(0xFFFAF7EF)
 val Apricot = Color(0xFFE4AB84)
