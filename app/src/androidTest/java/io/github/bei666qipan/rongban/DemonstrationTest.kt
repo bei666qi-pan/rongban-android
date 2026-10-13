@@ -27,7 +27,7 @@ class DemonstrationTest {
  private val fast get()=InstrumentationRegistry.getArguments().getString("fast")=="true"
  @Before fun configureUiAutomation() {Configurator.getInstance().waitForIdleTimeout=0;Configurator.getInstance().waitForSelectorTimeout=0}
  @After fun close() {scenario?.close()}
- private fun pause(seconds:Long=5) {Thread.sleep(if(fast) 500 else seconds*250)}
+ private fun pause(seconds:Long=5) {Thread.sleep(if(fast) 500 else seconds*1000)}
  private fun scroll(up:Boolean) {val w=device.displayWidth;val h=device.displayHeight;device.swipe(w-12,if(up) h*8/10 else h*3/10,w-12,if(up) h*3/10 else h*8/10,20);Thread.sleep(300)}
  private fun find(selector:BySelector):UiObject2 {
   device.findObject(selector)?.takeIf {it.visibleBounds.height()>0}?.let {return it}
