@@ -33,3 +33,11 @@ python3 scripts/prepare_speech.py
 CI 执行编译、Lint、核心逻辑和设备测试，并提供可安装 APK。真实接口测试只有在本机调试设备配置了 Key 后运行，CI 不注入凭证。演示录屏用专门的 paced walkthrough，默认不会在 CI 执行。
 
 公开发布源码需继续保留 AGPL-3.0 与上游来源。当前语音质量和性能仅在模拟器验收，识别可能有误字，后续应补充真实手机和不同说话者的测试。
+
+## 完整版本与下载
+
+完整实现位于 `feat/06-cards-delivery`，六组 PR 已开放审查。`main` 保留初始基线，按依赖顺序合并后获得完整版本。
+
+课程交付包见私有仓库的 [v0.1.0-course 发布页](https://github.com/bei666qi-pan/rongban-android/releases/tag/v0.1.0-course)，包含离线模型 APK、源码压缩包、10 页展示 PPT、开发文档 PDF 和两段约三分钟的真实演示。安装包不含 API Key，需在「我的」自行配置。
+
+最终自动化验收：14 项 JVM 测试、8 项 Android 设备测试通过；MiMo 真实接口与跨会话引用通过。详细证据和环境限制见 [验收报告](docs/验收报告.md)。
