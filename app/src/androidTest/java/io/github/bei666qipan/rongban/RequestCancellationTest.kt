@@ -30,8 +30,10 @@ class RequestCancellationTest {
    server.enqueue(MockResponse().setHeader("Content-Type","text/event-stream").setBody(first.repeat(300)).throttleBody(first.toByteArray().size.toLong(),1,TimeUnit.SECONDS))
    server.enqueue(MockResponse().setHeader("Content-Type","text/event-stream").setBody("data: {\"choices\":[{\"delta\":{\"content\":\"新回复完整\"}}]}\n\ndata: [DONE]\n\n"))
    val conversation=Conversation();db.dao().put(conversation)
+   withTimeout(5000) {while(!vm.ready.value) delay(20)}
+   android.util.Log.i("RongbanRequestFixture","Loopback cleartext permitted: "+android.security.NetworkSecurityPolicy.getInstance().isCleartextTrafficPermitted("localhost"))
    withContext(Dispatchers.Main) {vm.send(conversation.id,"first request")}
-   withTimeout(15000) {while(db.dao().messageList(conversation.id).none {it.content.contains("旧回复")}) delay(30)}
+   try {withTimeout(15000) {while(db.dao().messageList(conversation.id).none {it.content.contains("旧回复")}) delay(30)}} catch(e:TimeoutCancellationException) {android.util.Log.i("RongbanRequestFixture","First stage: "+db.dao().messageList(conversation.id).map {it.state+":"+it.content}.joinToString()+"; status="+vm.status.value);throw e}
    withContext(Dispatchers.Main) {vm.cancel();vm.send(conversation.id,"second request")}
    withTimeout(15000) {while(vm.busy.value || db.dao().messageList(conversation.id).none {it.content=="新回复完整" && it.state=="complete"} || db.dao().messageList(conversation.id).none {it.content.contains("旧回复") && it.state=="cancelled"}) delay(30)}
    val messages=db.dao().messageList(conversation.id)

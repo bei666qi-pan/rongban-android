@@ -22,7 +22,9 @@ import javax.inject.Singleton
  fun stream(config:ProviderConfig,key:String,messages:List<Pair<String,String>>):Flow<String> = callbackFlow {
   require(key.isNotBlank()) {"请先在「我的」页面填写 API Key"}
   val request=ProtocolAdapter.request(config,key,messages)
-  val source=EventSources.createFactory(client).newEventSource(request,object:EventSourceListener() {
+  // Device proxies must not redirect a loopback model server onto the proxy's own localhost.
+  val transport=if(request.url.host in setOf("127.0.0.1","localhost","::1")) client.newBuilder().proxy(java.net.Proxy.NO_PROXY).build() else client
+  val source=EventSources.createFactory(transport).newEventSource(request,object:EventSourceListener() {
    override fun onEvent(eventSource:EventSource,id:String?,type:String?,data:String) {
     if(data=="[DONE]") {close();return}
     try {val text=ProtocolAdapter.decode(config.protocol,type,data);if(text.isNotEmpty()) trySendBlocking(text)} catch(e:Exception) {close(IllegalStateException("模型响应格式无法识别，请检查协议配置"))}
