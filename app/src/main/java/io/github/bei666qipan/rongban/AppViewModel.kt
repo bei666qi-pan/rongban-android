@@ -23,6 +23,7 @@ import javax.inject.Inject
  val busy=MutableStateFlow(false)
  val speechState=MutableStateFlow("idle")
  val voiceText=MutableStateFlow("")
+ val recognizedText=MutableStateFlow("")
  val status=MutableStateFlow<String?>(null)
  val ready=MutableStateFlow(false)
  private val speech=SpeechEngine(context)
@@ -41,7 +42,7 @@ import javax.inject.Inject
  fun updatePreferences(block:(Preferences)->Preferences) {viewModelScope.launch {settings.update(block)}}
  fun createConversation(after:(String)->Unit) {viewModelScope.launch {val c=Conversation();dao.put(c);active.value=c.id;after(c.id)}}
  fun removeConversation(c:Conversation) {viewModelScope.launch {dao.deleteConversation(c.id);if(active.value==c.id) active.value=null}}
- fun saveMemory(m:Memory) {viewModelScope.launch {val same=dao.memoryList().firstOrNull {it.id!=m.id && it.content.trim()==m.content.trim()};if(same!=null) notify("这件事已经在记忆里了") else {dao.put(m.copy(updated=System.currentTimeMillis()));notify("记忆已保存")}}}
+ fun saveMemory(m:Memory) {viewModelScope.launch {val same=dao.memoryList().firstOrNull {it.id!=m.id && it.content.trim()==m.content.trim()};if(same!=null) notify("这件事已经在记忆里了") else {dao.put(m.copy(source=if(dao.memoryList().firstOrNull {it.id==m.id}?.pending==true) "AI 提取，用户已确认" else m.source,updated=System.currentTimeMillis()));notify("记忆已保存")}}}
  fun forget(m:Memory) {viewModelScope.launch {dao.deleteMemory(m.id);dao.memoryList().filter {it.kind=="summary"}.forEach {dao.deleteMemory(it.id)};notify("这条记忆已移除，后续相遇不再引用")}}
  fun saveSkill(s:Skill) {viewModelScope.launch {dao.put(s);notify("技能已保存")}}
  fun importSkill(content:String) {viewModelScope.launch {runCatching {BuiltinSkills.parse(content)}.onSuccess {dao.put(it);notify("技能已导入")}.onFailure {notify(it.message ?: "技能格式无法识别")}}}
@@ -55,7 +56,7 @@ import javax.inject.Inject
   stopSpeech();voiceText.value=""
   voice=viewModelScope.launch {
    speechState.value="listening"
-   try {val result=speech.listen {voiceText.value=it};if(result.isBlank()) notify("没有听清，可以再试一次或输入文字") else send(id,result)} catch(e:CancellationException) {throw e} catch(e:Exception) {notify(e.message ?: "语音不可用，请用文字输入")} finally {speechState.value="idle"}
+   try {val result=speech.listen {voiceText.value=it};if(result.isBlank()) notify("没有听清，可以再试一次或输入文字") else {recognizedText.value=result;notify("识别完成，可以编辑后发送")}} catch(e:CancellationException) {throw e} catch(e:Exception) {notify(e.message ?: "语音不可用，请用文字输入")} finally {speechState.value="idle"}
   }
  }
  fun speak(text:String) {stopSpeech();voice=viewModelScope.launch {speechState.value="speaking";try {speech.speak(text)} catch(e:CancellationException) {throw e} catch(e:Exception) {notify("朗读暂时不可用，请阅读文字")} finally {speechState.value="idle"}}}

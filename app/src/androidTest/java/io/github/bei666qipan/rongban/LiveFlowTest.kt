@@ -30,7 +30,7 @@ import java.io.File
   ui.waitUntil(15000) {ui.onAllNodesWithText("记住了：",substring=true).fetchSemanticsNodes().isNotEmpty() || ui.onAllNodesWithText("已经记得",substring=true).fetchSemanticsNodes().isNotEmpty()}
   screenshot("local-command")
   ui.onNodeWithText("‹ 返回").performClick()
-  ui.onNodeWithText("新的相遇").performClick()
+  ui.onAllNodesWithText("新的相遇").onFirst().performClick()
   ui.onNodeWithTag("chat-input").performTextInput("根据你记得的我的偏好，给我一个下午休息的建议。请用一句话回答。")
   ui.onNodeWithText("发送").performClick()
   ui.waitUntil(90000) {ui.onAllNodesWithText("朗读").fetchSemanticsNodes().isNotEmpty() && ui.onAllNodesWithText("绒伴正在回应").fetchSemanticsNodes().isEmpty()}
@@ -38,7 +38,7 @@ import java.io.File
   screenshot("context-chat")
   ui.onAllNodesWithText("做成卡片").onLast().performClick()
   ui.waitUntil(15000) {ui.onAllNodesWithText("卡片工作室").fetchSemanticsNodes().isNotEmpty()}
-  ui.onNodeWithText("这一段相遇").performClick()
+  ui.onAllNodesWithText("这一段相遇").onFirst().performClick()
   ui.waitUntil(15000) {ui.onAllNodesWithText("卡片预览").fetchSemanticsNodes().isNotEmpty()}
   screenshot("card-preview")
   ui.onNodeWithText("分享到其他 App").performScrollTo().performClick()

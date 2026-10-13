@@ -18,12 +18,17 @@ class SpeechEngine(private val context:Context) {
  @Volatile private var mic:AudioRecord?=null
  @Volatile private var track:AudioTrack?=null
  fun stop() { stopped.set(true);runCatching { mic?.stop() };runCatching { track?.pause();track?.flush() } }
+ private fun recognizer():OnlineRecognizer {
+  val base="models/asr"
+  val hotwords=java.io.File(context.cacheDir,"command-hotwords.txt")
+  hotwords.writeText("记住\n回忆\n专注\n分钟\n卡片\n喜欢\n")
+  return OnlineRecognizer(context.assets,OnlineRecognizerConfig(modelConfig=OnlineModelConfig(transducer=OnlineTransducerModelConfig("$base/encoder.int8.onnx","$base/decoder.onnx","$base/joiner.int8.onnx"),tokens="$base/tokens.txt",numThreads=2,modelingUnit="cjkchar"),decodingMethod="modified_beam_search",hotwordsFile=hotwords.absolutePath,hotwordsScore=3f))
+ }
  @SuppressLint("MissingPermission")
  suspend fun listen(onPartial:(String)->Unit):String=mutex.withLock { withContext(Dispatchers.Default) {
   check(ContextCompat.checkSelfPermission(context,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) { "请允许麦克风，或使用文字输入" }
   stopped.set(false)
-  val model="models/asr"
-  val recognizer=OnlineRecognizer(context.assets,OnlineRecognizerConfig(modelConfig=OnlineModelConfig(transducer=OnlineTransducerModelConfig("$model/encoder.int8.onnx","$model/decoder.onnx","$model/joiner.int8.onnx"),tokens="$model/tokens.txt",numThreads=2)))
+  val recognizer=recognizer()
   val stream=recognizer.createStream();var text=""
   try {
    val size=AudioRecord.getMinBufferSize(16000,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT).coerceAtLeast(3200)
@@ -59,7 +64,7 @@ class SpeechEngine(private val context:Context) {
  } }
  // Same native recognizer used by microphone capture, exposed for reproducible PCM tests.
  suspend fun recognizePcm(samples:FloatArray):String=withContext(Dispatchers.Default) {
-  val b="models/asr";val r=OnlineRecognizer(context.assets,OnlineRecognizerConfig(modelConfig=OnlineModelConfig(transducer=OnlineTransducerModelConfig("$b/encoder.int8.onnx","$b/decoder.onnx","$b/joiner.int8.onnx"),tokens="$b/tokens.txt",numThreads=2)))
+  val r=recognizer()
   val s=r.createStream()
   try { s.acceptWaveform(samples+FloatArray(8000),16000);s.inputFinished();while(r.isReady(s)) r.decode(s);r.getResult(s).text } finally { s.release();r.release() }
  }

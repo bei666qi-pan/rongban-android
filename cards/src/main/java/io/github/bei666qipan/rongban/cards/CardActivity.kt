@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,7 +31,7 @@ import java.util.zip.ZipOutputStream
  override fun onCreate(savedInstanceState:Bundle?) {super.onCreate(savedInstanceState);enableEdgeToEdge();setContent {CardsApp(vm)}}
 }
 @Composable private fun CardsApp(vm:CardViewModel) {
- val p by vm.preferences.collectAsState();val cards by vm.cards.collectAsState();val memories by vm.memories.collectAsState();val busy by vm.busy.collectAsState();val status by vm.status.collectAsState()
+ val p by vm.preferences.collectAsStateWithLifecycle();val cards by vm.cards.collectAsStateWithLifecycle();val memories by vm.memories.collectAsStateWithLifecycle();val busy by vm.busy.collectAsStateWithLifecycle();val status by vm.status.collectAsStateWithLifecycle()
  val context=androidx.compose.ui.platform.LocalContext.current;val scope=rememberCoroutineScope();val snackbar=remember {SnackbarHostState()}
  var editing by rememberSaveable {mutableStateOf<String?>(null)};var chooseSource by remember {mutableStateOf(false)};var recent by remember {mutableStateOf<List<Message>>(emptyList())};var pendingFiles by remember {mutableStateOf<List<File>>(emptyList())};var exporting by remember {mutableStateOf(false)}
  val savePng=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) {uri->if(uri==null) vm.status.value="已取消保存" else scope.launch {runCatching {withContext(Dispatchers.IO) {context.contentResolver.openOutputStream(uri)!!.use {output->pendingFiles.first().inputStream().use {it.copyTo(output)}}}}.onSuccess {vm.status.value="图片已保存"}.onFailure {vm.status.value="保存失败，请重新选择位置"}}}

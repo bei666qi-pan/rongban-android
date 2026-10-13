@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,12 +47,12 @@ import java.time.format.DateTimeFormatter
  override fun onStop() {vm.stopSpeech();super.onStop()}
 }
 @Composable private fun MainApp(vm:AppViewModel,voiceRequest:Int) {
- val prefs by vm.preferences.collectAsState()
- val conversations by vm.conversations.collectAsState()
- val memories by vm.memories.collectAsState()
- val skills by vm.skills.collectAsState()
- val ready by vm.ready.collectAsState()
- val status by vm.status.collectAsState()
+ val prefs by vm.preferences.collectAsStateWithLifecycle()
+ val conversations by vm.conversations.collectAsStateWithLifecycle()
+ val memories by vm.memories.collectAsStateWithLifecycle()
+ val skills by vm.skills.collectAsStateWithLifecycle()
+ val ready by vm.ready.collectAsStateWithLifecycle()
+ val status by vm.status.collectAsStateWithLifecycle()
  val context=androidx.compose.ui.platform.LocalContext.current
  var route by rememberSaveable {mutableStateOf("home")}
  var editingMemory by remember {mutableStateOf<Memory?>(null)}
@@ -110,9 +111,9 @@ import java.time.format.DateTimeFormatter
 @Composable private fun Empty(title:String,body:String) {Column(Modifier.fillMaxWidth().padding(vertical=48.dp),horizontalAlignment=Alignment.CenterHorizontally) {Text("✦",style=MaterialTheme.typography.headlineLarge,color=MaterialTheme.colorScheme.primary);Spacer(Modifier.height(16.dp));Text(title,style=MaterialTheme.typography.titleMedium);Text(body,Modifier.padding(12.dp),style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
 @Composable private fun NoteCard(title:String,body:String,onClick:()->Unit,actions:@Composable RowScope.()->Unit={}) {Card(Modifier.fillMaxWidth().clickable(onClick=onClick),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)) {Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {Text(title,style=MaterialTheme.typography.titleMedium);Text(body,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Row(verticalAlignment=Alignment.CenterVertically,content=actions)}}}
 @Composable private fun HomePage(p:Preferences,memoryCount:Int,vm:AppViewModel,onChat:()->Unit,onVoice:()->Unit,onCards:()->Unit,onMemory:()->Unit,onNotification:()->Unit) {
- val state by vm.speechState.collectAsState()
+ val state by vm.speechState.collectAsStateWithLifecycle()
  var now by remember {mutableLongStateOf(System.currentTimeMillis())}
- LaunchedEffect(p.focusEnds) {while(true) {now=System.currentTimeMillis();kotlinx.coroutines.delay(1000)}}
+ LaunchedEffect(p.focusEnds) {now=System.currentTimeMillis();while(p.focusEnds>now) {kotlinx.coroutines.delay(1000);now=System.currentTimeMillis()}}
  LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(24.dp),verticalArrangement=Arrangement.spacedBy(18.dp)) {
   item {Row {Text("绒伴  /  RONGBAN",Modifier.weight(1f),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary);Text(LocalDate.now().format(DateTimeFormatter.ofPattern("MM月dd日")),style=MaterialTheme.typography.labelMedium)}}
   item {Text("今天，也陪着你。",style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.Bold);Text("${p.petName}记得你，也想听听你的今天。",Modifier.padding(top=8.dp),color=MaterialTheme.colorScheme.onSurfaceVariant)}
@@ -124,9 +125,9 @@ import java.time.format.DateTimeFormatter
  }
 }
 @Composable private fun ChatPage(id:String,vm:AppViewModel,onBack:()->Unit,onVoice:()->Unit,onCards:()->Unit) {
- val messages by remember(id) {vm.dao.messages(id)}.collectAsState(emptyList())
- val busy by vm.busy.collectAsState();val speech by vm.speechState.collectAsState();val partial by vm.voiceText.collectAsState()
- var text by rememberSaveable(id) {mutableStateOf("")};val scroll=rememberLazyListState()
+ val messages by remember(id) {vm.dao.messages(id)}.collectAsStateWithLifecycle(initialValue=emptyList())
+ val busy by vm.busy.collectAsStateWithLifecycle();val speech by vm.speechState.collectAsStateWithLifecycle();val partial by vm.voiceText.collectAsStateWithLifecycle();val recognized by vm.recognizedText.collectAsStateWithLifecycle()
+ var text by rememberSaveable(id) {mutableStateOf("")};LaunchedEffect(recognized) {if(recognized.isNotBlank()) {text=recognized;vm.recognizedText.value=""}};val scroll=rememberLazyListState()
  LaunchedEffect(messages.size,messages.lastOrNull()?.content) {if(messages.isNotEmpty()) scroll.animateScrollToItem(messages.lastIndex)}
  Column(Modifier.fillMaxSize().imePadding()) {
   Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically) {TextButton(onClick=onBack) {Text("‹ 返回")};Text("这一段相遇",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);TextButton(onClick=onCards) {Text("卡片")}}
