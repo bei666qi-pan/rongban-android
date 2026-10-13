@@ -33,7 +33,7 @@ class RequestCancellationTest {
    withContext(Dispatchers.Main) {vm.send(conversation.id,"first request")}
    withTimeout(15000) {while(db.dao().messageList(conversation.id).none {it.content.contains("旧回复")}) delay(30)}
    withContext(Dispatchers.Main) {vm.cancel();vm.send(conversation.id,"second request")}
-   withTimeout(15000) {while(db.dao().messageList(conversation.id).none {it.content=="新回复完整" && it.state=="complete"}) delay(30)}
+   withTimeout(15000) {while(vm.busy.value || db.dao().messageList(conversation.id).none {it.content=="新回复完整" && it.state=="complete"} || db.dao().messageList(conversation.id).none {it.content.contains("旧回复") && it.state=="cancelled"}) delay(30)}
    val messages=db.dao().messageList(conversation.id)
    assertEquals("cancelled",messages.first {it.content.contains("旧回复")}.state)
    assertEquals("complete",messages.first {it.content=="新回复完整"}.state)

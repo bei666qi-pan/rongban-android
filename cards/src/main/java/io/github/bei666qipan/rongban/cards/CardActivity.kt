@@ -16,6 +16,8 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
@@ -31,6 +33,7 @@ import java.util.zip.ZipOutputStream
  private val vm:CardViewModel by viewModels()
  override fun onCreate(savedInstanceState:Bundle?) {super.onCreate(savedInstanceState);enableEdgeToEdge();setContent {CardsApp(vm)}}
 }
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable private fun CardsApp(vm:CardViewModel) {
  val p by vm.preferences.collectAsStateWithLifecycle();val cards by vm.cards.collectAsStateWithLifecycle();val memories by vm.memories.collectAsStateWithLifecycle();val busy by vm.busy.collectAsStateWithLifecycle();val status by vm.status.collectAsStateWithLifecycle()
  val context=androidx.compose.ui.platform.LocalContext.current;val scope=rememberCoroutineScope();val snackbar=remember {SnackbarHostState()}
@@ -46,7 +49,7 @@ import java.util.zip.ZipOutputStream
   context.startActivity(Intent.createChooser(intent,"分享这张绒伴卡片"))
  } else if(files.size==1) savePng.launch("绒伴卡片.png") else saveZip.launch("绒伴分页卡片.zip")} catch(e:Exception) {vm.status.value="导出失败：${e.message ?: "请稍后重试"}"} finally {exporting=false}}}
  RongbanTheme(p.theme) {Scaffold(snackbarHost={SnackbarHost(snackbar)}) {padding->
-  Column(Modifier.fillMaxSize().padding(padding)) {
+  Column(Modifier.fillMaxSize().padding(padding).semantics {testTagsAsResourceId=true}) {
    if(p.studentName.isNotBlank() && p.studentNumber.isNotBlank()) Text("${p.studentName}  ${p.studentNumber}",Modifier.padding(horizontal=20.dp),style=MaterialTheme.typography.labelSmall)
    val card=cards.firstOrNull {it.id==editing}
    if(editing!=null && card!=null) {

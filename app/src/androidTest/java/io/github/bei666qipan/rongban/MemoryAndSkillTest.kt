@@ -12,6 +12,15 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class MemoryAndSkillTest {
+ @Test fun interruptedReplyRecoversOnNewViewModel()=runBlocking {
+  val c=InstrumentationRegistry.getInstrumentation().targetContext
+  val db=Room.inMemoryDatabaseBuilder(c,RongbanDatabase::class.java).build()
+  val conversation=Conversation();db.dao().put(conversation)
+  db.dao().put(Message(conversationId=conversation.id,role="assistant",content="已生成的片段",state="streaming"))
+  val vm=AppViewModel(db.dao(),SettingsStore(c),CredentialStore(c),AiClient(),c)
+  try {withTimeout(5000) {while(!vm.ready.value) delay(20)};assertEquals("cancelled",db.dao().messageList(conversation.id).single().state);assertEquals("已生成的片段",db.dao().messageList(conversation.id).single().content)}
+  finally {vm.viewModelScope.cancel();db.close()}
+ }
  @Test fun editedDisabledDeletedAndDuplicateCandidatesHavePredictableContext()=runBlocking {
   val c=InstrumentationRegistry.getInstrumentation().targetContext
   val db=Room.inMemoryDatabaseBuilder(c,RongbanDatabase::class.java).build()

@@ -19,6 +19,7 @@ fun newId() = UUID.randomUUID().toString()
 @Entity data class Skill(@PrimaryKey val id:String,val name:String,val description:String,val body:String,val executor:String="prompt",val enabled:Boolean=true,val builtin:Boolean=false)
 @Entity data class CardDraft(@PrimaryKey val id:String=newId(),val title:String,val body:String,val template:String="conversation",val source:String="",val created:Long=System.currentTimeMillis())
 @Dao interface RongbanDao {
+ @Query("UPDATE Message SET state='cancelled', content=CASE WHEN content='' THEN '上次生成已中断，可以重试。' ELSE content END WHERE state='streaming'") suspend fun recoverInterruptedReplies()
  @Query("SELECT * FROM Conversation ORDER BY created DESC") fun conversations():Flow<List<Conversation>>
  @Query("SELECT * FROM Message WHERE conversationId=:id ORDER BY created") fun messages(id:String):Flow<List<Message>>
  @Query("SELECT * FROM Message WHERE conversationId=:id ORDER BY created") suspend fun messageList(id:String):List<Message>

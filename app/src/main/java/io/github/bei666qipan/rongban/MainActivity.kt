@@ -25,6 +25,8 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
@@ -46,6 +48,7 @@ import java.time.format.DateTimeFormatter
  override fun onNewIntent(intent:Intent) {super.onNewIntent(intent);if(intent.getBooleanExtra("voice",false)) voiceRequest++}
  override fun onStop() {vm.stopSpeech();super.onStop()}
 }
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable private fun MainApp(vm:AppViewModel,voiceRequest:Int) {
  val prefs by vm.preferences.collectAsStateWithLifecycle()
  val conversations by vm.conversations.collectAsStateWithLifecycle()
@@ -73,7 +76,7 @@ import java.time.format.DateTimeFormatter
  fun cards() {context.startActivity(Intent(context,CardActivity::class.java))}
  RongbanTheme(prefs.theme) {
   Scaffold(snackbarHost={SnackbarHost(snackbar)},bottomBar={if(!route.startsWith("chat:")) NavigationBar(containerColor=MaterialTheme.colorScheme.surface) {listOf("home" to "陪伴","chats" to "对话","memories" to "记忆","skills" to "技能","settings" to "我的").forEach {(key,label)->NavigationBarItem(selected=route==key,onClick={route=key},icon={Text(when(key){"home"->"◉";"chats"->"◌";"memories"->"◇";"skills"->"✦";else->"☰"})},label={Text(label)})}}}) {padding->
-   Column(Modifier.fillMaxSize().padding(padding)) {
+   Column(Modifier.fillMaxSize().padding(padding).semantics {testTagsAsResourceId=true}) {
     if(prefs.studentName.isNotBlank() && prefs.studentNumber.isNotBlank()) Text("${prefs.studentName}  ${prefs.studentNumber}",Modifier.fillMaxWidth().padding(horizontal=20.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     if(!ready) {Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center) {CircularProgressIndicator()}}
     else when {

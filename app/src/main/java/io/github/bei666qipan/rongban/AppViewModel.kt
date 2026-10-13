@@ -35,6 +35,7 @@ import javax.inject.Inject
  private val pendingCommands=mutableMapOf<String,Command.Missing>()
  init {
   viewModelScope.launch {
+   dao.recoverInterruptedReplies()
    for(skill in BuiltinSkills.all) if(dao.skillList().none { it.id==skill.id }) dao.put(skill)
    val file=File(context.filesDir,"credential-once.json")
    if(context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE!=0 && file.exists()) {
@@ -53,7 +54,7 @@ import javax.inject.Inject
  fun deleteSkill(s:Skill) {viewModelScope.launch {dao.deleteSkill(s.id)}}
  fun saveProvider(config:ProviderConfig,key:String?) {viewModelScope.launch {if(key!=null) credentials.put(config.id,key.trim());settings.update {p->p.copy(providers=p.providers.filterNot {it.id==config.id}+config,activeProvider=config.id)};notify("模型配置已保存")}}
  fun testProvider(config:ProviderConfig,key:String?) {viewModelScope.launch {notify("正在测试连接……");runCatching {ai.complete(config,key ?: credentials.get(config.id),listOf("user" to "请只回复：连接成功。"))}.onSuccess {notify("连接成功：${config.model}")}.onFailure {notify(it.message ?: "连接失败")}}}
- fun cancel() {requestVersion++;request?.cancel();memoryWork?.cancel();busy.value=false;speechState.value="idle";notify("已停止生成")}
+ fun cancel() {requestVersion++;request?.cancel();memoryWork?.cancel();stopSpeech();busy.value=false;speechState.value="idle";notify("已停止生成")}
  fun stopSpeech() {voiceVersion++;speech.stop();voice?.cancel();speechState.value="idle"}
  fun listen(id:String) {
   if(speechState.value=="listening") {speech.stop();return}
