@@ -44,7 +44,7 @@ object MemoryContext {
   val words=query.lowercase().split(Regex("[\\s，。！？、,:;]+" )).filter { it.length>=2 }
   return memories.filter { it.enabled && !it.pending && it.kind!="summary" }.sortedWith(compareByDescending<Memory> { memory ->
    val hay=(memory.title+" "+memory.content+" "+memory.aliases).lowercase()
-   words.sumOf { if(hay.contains(it)) 5 else 0 } + memory.aliases.split(',', '，',' ').filter { it.length>=2 }.count { query.contains(it,true) }*8 + if(memory.kind=="preference") 1 else 0
+   words.count { hay.contains(it) }*5 + memory.aliases.split(',', '，',' ').filter { it.length>=2 }.count { query.contains(it,true) }*8 + if(memory.kind=="preference") 1 else 0
   }.thenByDescending { it.updated }).take(limit)
  }
  fun system(preferences:Preferences,memories:List<Memory>,query:String,skill:String=""):String {
