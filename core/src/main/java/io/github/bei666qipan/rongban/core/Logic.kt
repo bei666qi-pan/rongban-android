@@ -20,8 +20,9 @@ object CommandParser {
   if(remember!=null) return remember.groupValues[1].takeIf { it.isNotBlank() }?.let(Command::Remember) ?: Command.Missing("你想让我记住什么？","记住：")
   val recall=Regex("^(?:帮我)?(?:回忆|回顾记忆|你还记得|记忆搜索)[：:，, ]*(.*)$").matchEntire(text)
   if(recall!=null) return Command.Recall(recall.groupValues[1])
-  if(text.contains("专注") || text.contains("番茄钟")) {
+  if((text.contains("专注") || text.contains("番茄钟")) && Regex("^(?:请)?(?:帮我)?(?:开始|开启|启动|设置|设定|陪我|专注|番茄钟)").containsMatchIn(text)) {
    val numeric=Regex("(\\d+|[零一二两三四五六七八九十百]+)\\s*分钟").find(text)?.groupValues?.get(1)
+   if(text.contains("分钟") && numeric==null) return Command.Missing("请用数字或中文数字告诉我专注多少分钟。","开始专注")
    val minutes=numeric?.toIntOrNull() ?: numeric?.let(::chineseNumber) ?: 25
    return if(minutes in 1..180) Command.Focus(minutes,text.replace(Regex("开始|专注|番茄钟|[0-9零一二两三四五六七八九十百]+分钟|[，, ]"),"").ifBlank { "陪你专注" }) else Command.Missing("专注时长请设在 1 到 180 分钟之间。","开始专注")
   }

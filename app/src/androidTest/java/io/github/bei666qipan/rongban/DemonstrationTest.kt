@@ -29,7 +29,7 @@ class DemonstrationTest {
  private val instrumentation get()=InstrumentationRegistry.getInstrumentation()
  private val device get()=UiDevice.getInstance(instrumentation)
  private val fast get()=InstrumentationRegistry.getArguments().getString("fast")=="true"
- private fun pause(seconds:Long=5) {Thread.sleep(if(fast) 500 else seconds*1000)}
+ private fun pause(seconds:Long=5) {Thread.sleep(if(fast) 500 else seconds*1000);ui.mainClock.advanceTimeBy(seconds*1000);ui.waitForIdle()}
  private fun click(text:String) {
   ui.waitForIdle()
   if(text in listOf("陪伴","对话","记忆","技能","我的")) ui.onNodeWithText(text,useUnmergedTree=true).performClick()
@@ -42,12 +42,12 @@ class DemonstrationTest {
  private fun finishAt(start:Long) {if(fast) return;val remaining=168000-(System.currentTimeMillis()-start);if(remaining>0) Thread.sleep(remaining)}
  @Test fun mainAppWalkthrough() {
   assumeTrue(InstrumentationRegistry.getArguments().getString("demo")=="true")
-  scenario=ActivityScenario.launch(MainActivity::class.java)
   val start=System.currentTimeMillis()
   runBlocking {
    val c=instrumentation.targetContext;val db=Room.databaseBuilder(c,RongbanDatabase::class.java,"rongban.db").build()
    try {db.dao().memoryList().filter {it.content.startsWith("主流程 验收记忆-")}.forEach {db.dao().deleteMemory(it.id)}} finally {db.close()}
   }
+  scenario=ActivityScenario.launch(MainActivity::class.java)
   ui.waitUntil(30000) {ui.onAllNodesWithText("今天，也陪着你。").fetchSemanticsNodes().isNotEmpty()}
   shot("home");pause(7);click("有点累");pause();click("写点什么")
   send("记住");ui.onNodeWithText("你想让我记住什么？").assertExists();pause()
@@ -76,14 +76,18 @@ class DemonstrationTest {
   hideKeyboard();pause(5)
   ui.onNodeWithTag("card-body").performScrollTo().performTextReplacement("忙碌的时候，也记得给自己一杯茶的时间。\n今天的每一点努力，都值得留下。")
   hideKeyboard();pause(6);click("保存草稿");pause(5);click("保存图片");pause(5)
-  val save=device.wait(Until.findObject(By.text(java.util.regex.Pattern.compile("(?i)save|保存"))),20000)
+  val save=device.wait(Until.findObject(By.text(java.util.regex.Pattern.compile("(?i)save|保存")).enabled(true)),20000)
   shot("save-dialog")
   if(save!=null) save.click() else error("System document save action unavailable")
-  pause(7);shot("saved-card");click("分享到其他 App");pause(8);shot("system-share");device.pressBack();pause(3)
+  check(device.wait(Until.hasObject(By.pkg(c.packageName)),20000)) {"Document picker did not return to cards"}
+  pause(7);shot("saved-card");click("分享到其他 App")
+  check(device.wait(Until.hasObject(By.pkg("android")),20000)) {"System share chooser did not open"}
+  pause(8);shot("system-share");device.pressBack()
+  check(device.wait(Until.hasObject(By.pkg(c.packageName)),10000));pause(3)
   ui.onNodeWithTag("card-body").performScrollTo().performTextReplacement((1..65).joinToString("\n") {"第 $it 个小瞬间：停下来，认真看看身边的生活。"})
   hideKeyboard();pause(5)
   ui.onNodeWithText("下一页").performScrollTo().performClick();pause(8);shot("card-pagination")
-  click("保存图片");pause(5);device.pressBack();pause(5)
+  click("保存图片");check(device.wait(Until.hasObject(By.pkg("com.google.android.documentsui")),20000));pause(5);device.pressBack();pause(5)
   click("‹ 工作室");pause(8);finishAt(start)
  }
 }

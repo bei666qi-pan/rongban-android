@@ -59,8 +59,8 @@ import java.time.format.DateTimeFormatter
  var editingSkill by remember {mutableStateOf<Skill?>(null)}
  var deleteMemory by remember {mutableStateOf<Memory?>(null)}
  var deleteConversation by remember {mutableStateOf<Conversation?>(null)}
- var selectedMemories by remember {mutableStateOf(setOf<String>())}
- var csv by remember {mutableStateOf("")}
+ var selectedMemories by rememberSaveable {mutableStateOf(setOf<String>())}
+ var csv by rememberSaveable {mutableStateOf("")}
  val snackbar=remember {SnackbarHostState()}
  val scope=rememberCoroutineScope()
  val mic=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->if(granted) vm.active.value?.let(vm::listen) else vm.notify("麦克风未开启，你仍可以输入文字") }

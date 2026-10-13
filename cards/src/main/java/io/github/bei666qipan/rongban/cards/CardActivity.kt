@@ -34,17 +34,17 @@ import java.util.zip.ZipOutputStream
 @Composable private fun CardsApp(vm:CardViewModel) {
  val p by vm.preferences.collectAsStateWithLifecycle();val cards by vm.cards.collectAsStateWithLifecycle();val memories by vm.memories.collectAsStateWithLifecycle();val busy by vm.busy.collectAsStateWithLifecycle();val status by vm.status.collectAsStateWithLifecycle()
  val context=androidx.compose.ui.platform.LocalContext.current;val scope=rememberCoroutineScope();val snackbar=remember {SnackbarHostState()}
- var editing by rememberSaveable {mutableStateOf<String?>(null)};var chooseSource by remember {mutableStateOf(false)};var recent by remember {mutableStateOf<List<Message>>(emptyList())};var pendingFiles by remember {mutableStateOf<List<File>>(emptyList())};var exporting by remember {mutableStateOf(false)}
+ var editing by rememberSaveable {mutableStateOf<String?>(null)};var chooseSource by remember {mutableStateOf(false)};var recent by remember {mutableStateOf<List<Message>>(emptyList())};var pendingPaths by rememberSaveable {mutableStateOf(arrayListOf<String>())};val pendingFiles=pendingPaths.map(::File);var exporting by remember {mutableStateOf(false)}
  val savePng=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) {uri->if(uri==null) vm.status.value="已取消保存" else scope.launch {runCatching {withContext(Dispatchers.IO) {context.contentResolver.openOutputStream(uri)!!.use {output->pendingFiles.first().inputStream().use {it.copyTo(output)}}}}.onSuccess {vm.status.value="图片已保存"}.onFailure {vm.status.value="保存失败，请重新选择位置"}}}
  val saveZip=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) {uri->if(uri==null) vm.status.value="已取消保存" else scope.launch {runCatching {withContext(Dispatchers.IO) {ZipOutputStream(context.contentResolver.openOutputStream(uri)!!).use {zip->pendingFiles.forEach {file->zip.putNextEntry(ZipEntry(file.name));file.inputStream().use {it.copyTo(zip)};zip.closeEntry()}}}}.onSuccess {vm.status.value="分页图片已保存"}.onFailure {vm.status.value="保存失败，请重新选择位置"}}}
  LaunchedEffect(status) {status?.let {snackbar.showSnackbar(it);vm.status.value=null}}
- fun export(card:CardDraft,share:Boolean) {scope.launch {exporting=true;try {pendingFiles=withContext(Dispatchers.IO) {CardRenderer.export(context,card,p)};if(share) {
-  val uris=pendingFiles.map {CardRenderer.uri(context,it)}
+ fun export(card:CardDraft,share:Boolean) {scope.launch {exporting=true;try {val files=withContext(Dispatchers.IO) {CardRenderer.export(context,card,p)};pendingPaths=files.mapTo(arrayListOf()) {it.absolutePath};if(share) {
+  val uris=files.map {CardRenderer.uri(context,it)}
   val intent=Intent(if(uris.size==1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE).setType("image/png").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
   if(uris.size==1) intent.putExtra(Intent.EXTRA_STREAM,uris.first()) else intent.putParcelableArrayListExtra(Intent.EXTRA_STREAM,ArrayList(uris))
   intent.clipData=ClipData.newUri(context.contentResolver,"绒伴卡片",uris.first()).apply {uris.drop(1).forEach {addItem(ClipData.Item(it))}}
   context.startActivity(Intent.createChooser(intent,"分享这张绒伴卡片"))
- } else if(pendingFiles.size==1) savePng.launch("绒伴卡片.png") else saveZip.launch("绒伴分页卡片.zip")} catch(e:Exception) {vm.status.value="导出失败：${e.message ?: "请稍后重试"}"} finally {exporting=false}}}
+ } else if(files.size==1) savePng.launch("绒伴卡片.png") else saveZip.launch("绒伴分页卡片.zip")} catch(e:Exception) {vm.status.value="导出失败：${e.message ?: "请稍后重试"}"} finally {exporting=false}}}
  RongbanTheme(p.theme) {Scaffold(snackbarHost={SnackbarHost(snackbar)}) {padding->
   Column(Modifier.fillMaxSize().padding(padding)) {
    if(p.studentName.isNotBlank() && p.studentNumber.isNotBlank()) Text("${p.studentName}  ${p.studentNumber}",Modifier.padding(horizontal=20.dp),style=MaterialTheme.typography.labelSmall)

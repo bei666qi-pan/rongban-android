@@ -2,6 +2,7 @@ package io.github.bei666qipan.rongban.core
 import org.junit.Assert.*
 import org.junit.Test
 class LogicTest {
+ @Test fun mentioningFocusDoesNotStartATimer() {assertTrue(CommandParser.parse("我今天没法专注，可以陪我聊聊吗") is Command.Chat);assertTrue(CommandParser.parse("开始专注abc分钟") is Command.Missing)}
  @Test fun missingParameterResumesAndExplicitCommandOverrides() {
   val pending=CommandParser.parse("记住") as Command.Missing
   assertEquals("我喜欢喝茶",(CommandParser.continueWith(pending,"我喜欢喝茶") as Command.Remember).content)
