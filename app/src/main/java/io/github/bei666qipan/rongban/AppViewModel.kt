@@ -14,7 +14,7 @@ import kotlinx.serialization.json.*
 import java.io.File
 import javax.inject.Inject
 
-@HiltViewModel class AppViewModel @Inject constructor(val dao:RongbanDao,val settings:SettingsStore,val credentials:CredentialStore,@ApplicationContext private val context:Context):ViewModel() {
+@HiltViewModel class AppViewModel @Inject constructor(val dao:RongbanDao,val settings:SettingsStore,val credentials:CredentialStore,private val ai:AiClient,@ApplicationContext private val context:Context):ViewModel() {
  val preferences=settings.flow.stateIn(viewModelScope,SharingStarted.WhileSubscribed(5000),Preferences())
  val conversations=dao.conversations().stateIn(viewModelScope,SharingStarted.WhileSubscribed(5000),emptyList())
  val memories=dao.memories().stateIn(viewModelScope,SharingStarted.WhileSubscribed(5000),emptyList())
@@ -47,7 +47,7 @@ import javax.inject.Inject
  fun importSkill(content:String) {viewModelScope.launch {runCatching {BuiltinSkills.parse(content)}.onSuccess {dao.put(it);notify("技能已导入")}.onFailure {notify(it.message ?: "技能格式无法识别")}}}
  fun deleteSkill(s:Skill) {viewModelScope.launch {dao.deleteSkill(s.id)}}
  fun saveProvider(config:ProviderConfig,key:String?) {viewModelScope.launch {if(key!=null) credentials.put(config.id,key.trim());settings.update {p->p.copy(providers=p.providers.filterNot {it.id==config.id}+config,activeProvider=config.id)};notify("模型配置已保存")}}
- fun testProvider(config:ProviderConfig,key:String?) {notify("连接测试将在模型接入中启用")}
+ fun testProvider(config:ProviderConfig,key:String?) {viewModelScope.launch {notify("正在测试连接……");runCatching {ai.complete(config,key ?: credentials.get(config.id),listOf("user" to "请只回复：连接成功。"))}.onSuccess {notify("连接成功：${config.model}")}.onFailure {notify(it.message ?: "连接失败")}}}
  fun cancel() {request?.cancel();busy.value=false;speechState.value="idle";notify("已停止生成")}
  fun stopSpeech() {speech.stop();voice?.cancel();speechState.value="idle"}
  fun listen(id:String) {
@@ -73,7 +73,7 @@ import javax.inject.Inject
    busy.value=true;speechState.value="thinking"
    try {
     dao.put(Message(conversationId=id,role="user",content=text.trim()))
-    val list=dao.messageList(id)
+    val list=dao.messageList(id).filter {it.state=="complete"}
     if(list.count {it.role=="user"}==1) dao.put(Conversation(id=id,title=text.take(22)))
     val command=if(chosenSkill?.executor=="prompt") Command.Chat else CommandParser.parse(text)
     val required=when(command) {is Command.Remember->"remember";is Command.Recall->"recall";is Command.Focus->"focus";Command.Review->"review";Command.Card->"card";Command.Encourage->"encourage";else->null}
@@ -84,10 +84,39 @@ import javax.inject.Inject
      is Command.Focus->{startFocus(command.minutes,command.label);"好，陪你专注 ${command.minutes} 分钟。开始之前，把手边最重要的一件事放在眼前。"}
      is Command.Missing->command.hint
      Command.Card->{val body=list.filter {it.role=="assistant"}.lastOrNull()?.content ?: "与你相遇的这一刻。";dao.put(CardDraft(title="我们的相遇",body=body,source=id));"卡片草稿已经准备好了。从卡片工作室打开，就能预览和分享。"}
-     else -> "联网聊天尚在接入中，本地记忆和专注技能已经可以使用。"
+     else -> {
+      val pref=settings.flow.first();val config=pref.provider()
+      val memoryList=dao.memoryList()
+      val instruction=when(command) {Command.Review->"根据用户今天的对话做简短回顾。今天的对话："+dao.recentMessages().filter {it.created>=java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()}.reversed().joinToString("\n") {it.content.take(300)};Command.Encourage->"结合用户心情给出温柔具体的鼓励。";else->chosenSkill?.body.orEmpty()}
+      val system=MemoryContext.system(pref,memoryList,text,instruction)
+      val responseId=newId();var assembled=""
+      dao.put(Message(id=responseId,conversationId=id,role="assistant",content="",state="streaming"))
+      ai.stream(config,credentials.get(config.id),listOf("system" to system)+list.takeLast(16).map {it.role to it.content.take(2000)}).collect {delta->assembled+=delta;dao.put(Message(id=responseId,conversationId=id,role="assistant",content=assembled,state="streaming"))}
+      check(assembled.isNotBlank()) {"模型没有返回文字，请重试"};dao.put(Message(id=responseId,conversationId=id,role="assistant",content=assembled))
+      if(pref.memoryEnabled && command is Command.Chat && chosenSkill==null) extractMemory(id,text,assembled)
+      assembled
+     }
     }
-    dao.put(Message(conversationId=id,role="assistant",content=response))
-   } catch(e:CancellationException) {throw e} catch(e:Exception) {notify(e.message ?: "没有完成，请重试")} finally {busy.value=false;speechState.value="idle"}
+    if(dao.messageList(id).lastOrNull()?.role!="assistant") dao.put(Message(conversationId=id,role="assistant",content=response))
+   } catch(e:CancellationException) {withContext(NonCancellable) {dao.messageList(id).lastOrNull()?.takeIf {it.role=="assistant" && it.state=="streaming"}?.let {dao.put(it.copy(content=it.content.ifBlank {"已停止生成。"},state="cancelled"))}};throw e} catch(e:Exception) {val message=e.message ?: "没有完成，请重试";dao.messageList(id).lastOrNull()?.takeIf {it.role=="assistant" && it.state=="streaming"}?.let {dao.put(it.copy(content=it.content.ifBlank {message},state="error"))};notify(message)} finally {busy.value=false;speechState.value="idle"}
+  }
+ }
+ private fun extractMemory(id:String,user:String,answer:String) {
+  viewModelScope.launch {
+   val pref=settings.flow.first();if(!pref.memoryEnabled) return@launch
+   val p=pref.provider()
+   runCatching {
+    val result=ai.complete(p,credentials.get(p.id),listOf("system" to "从用户直接陈述中提取一个稳定偏好或重要事实。不要从助手回答中推测。只输出 JSON：{\"title\":\"短标题\",\"content\":\"用户事实\",\"aliases\":\"关键词\"}。没有合适事实则输出 {}。", "user" to user.take(2000)))
+    val clean=result.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+    val obj=Json.parseToJsonElement(clean).jsonObject
+    val content=obj["content"]?.jsonPrimitive?.contentOrNull.orEmpty().take(1000)
+    if(content.isNotBlank() && dao.memoryList().none {it.content.trim()==content.trim()}) dao.put(Memory(title=obj["title"]?.jsonPrimitive?.contentOrNull ?: content.take(24),content=content,aliases=obj["aliases"]?.jsonPrimitive?.contentOrNull.orEmpty(),source="AI 提取，等待你的确认",sourceConversationId=id,pending=true))
+    val history=dao.messageList(id)
+    if(history.count {it.role=="user"}%6==0) {
+     val summary=ai.complete(p,credentials.get(p.id),listOf("system" to "把这段对话概括为 150 字以内的情境摘要。只依据真实内容，避免推测。", "user" to history.takeLast(12).joinToString("\n") {it.content.take(600)}))
+     dao.put(Memory(title="最近的一段相遇",content=summary.take(1200),kind="summary",source="对话情境摘要",sourceConversationId=id))
+    }
+   }
   }
  }
  override fun onCleared() {speech.stop();super.onCleared()}
