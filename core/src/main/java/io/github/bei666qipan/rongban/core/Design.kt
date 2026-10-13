@@ -22,7 +22,7 @@ val Cream = Color(0xFFFAF7EF)
 val Apricot = Color(0xFFE4AB84)
 @Composable fun RongbanTheme(theme: String = "system", content: @Composable () -> Unit) {
  val dark = theme == "dark" || (theme == "system" && isSystemInDarkTheme())
- val scheme = if(dark) darkColorScheme(primary=Color(0xFFB5CBB8), secondary=Apricot, background=Color(0xFF202720), surface=Color(0xFF283028), surfaceVariant=Color(0xFF354035)) else lightColorScheme(primary=Sage, secondary=Color(0xFFAF714D), background=Cream, surface=Color(0xFFFFFCF6), surfaceVariant=Color(0xFFE6ECE2), onSurface=Color(0xFF343F35))
+ val scheme = if(dark) darkColorScheme(primary=Color(0xFFB5CBB8), secondary=Apricot, primaryContainer=Color(0xFF394B3E),secondaryContainer=Color(0xFF554236),surfaceContainer=Color(0xFF283028),surfaceContainerHigh=Color(0xFF303A31),surfaceContainerHighest=Color(0xFF354035),background=Color(0xFF202720), surface=Color(0xFF283028), surfaceVariant=Color(0xFF354035)) else lightColorScheme(primary=Sage, secondary=Color(0xFFAF714D), primaryContainer=Color(0xFFDDE8DC),onPrimaryContainer=Color(0xFF304235),secondaryContainer=Color(0xFFF3DFCE),onSecondaryContainer=Color(0xFF503B2F),surfaceContainer=Color(0xFFF0F0E7),surfaceContainerHigh=Color(0xFFE8EDDF),surfaceContainerHighest=Color(0xFFE3EADD),background=Cream, surface=Color(0xFFFFFCF6), surfaceVariant=Color(0xFFE6ECE2), onSurface=Color(0xFF343F35))
  MaterialTheme(colorScheme=scheme, shapes=Shapes(small=RoundedCornerShape(14.dp),medium=RoundedCornerShape(24.dp),large=RoundedCornerShape(32.dp)), content=content)
 }
 @Composable fun Pet(modifier: Modifier = Modifier, state: String = "idle") {

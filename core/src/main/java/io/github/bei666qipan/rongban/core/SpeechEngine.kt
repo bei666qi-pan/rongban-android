@@ -48,7 +48,7 @@ class SpeechEngine(private val context:Context) {
   stopped.set(false);val base="models/tts"
   val tts=OfflineTts(context.assets,OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="$base/model.onnx",lexicon="$base/lexicon.txt",tokens="$base/tokens.txt"),numThreads=2),ruleFsts="$base/phone.fst,$base/date.fst,$base/number.fst"))
   try {
-   val audio=tts.generate(text.replace(Regex("[*#`]"),"").take(400),sid=0,speed=1f)
+   val audio=tts.generate(text.replace(Regex("[*#`]"),"").take(400),sid=21,speed=1f)
    ensureActive();if(stopped.get()) return@withContext
    val format=AudioFormat.Builder().setSampleRate(audio.sampleRate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).setEncoding(AudioFormat.ENCODING_PCM_FLOAT).build()
    val player=AudioTrack.Builder().setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()).setAudioFormat(format).setBufferSizeInBytes((audio.samples.size*4).coerceAtLeast(4096)).setTransferMode(AudioTrack.MODE_STATIC).build()
