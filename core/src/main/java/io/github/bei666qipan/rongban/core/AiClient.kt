@@ -35,7 +35,8 @@ import javax.inject.Singleton
 object ProtocolAdapter {
  private val json=Json {ignoreUnknownKeys=true}
  fun request(c:ProviderConfig,key:String,messages:List<Pair<String,String>>):Request {
-  require(c.baseUrl.startsWith("https://") || c.baseUrl.startsWith("http://127.0.0.1") || c.baseUrl.startsWith("http://localhost") || c.baseUrl.startsWith("http://localhost")) {"请填写完整的 HTTPS Base URL"}
+  require(c.baseUrl.startsWith("https://") || c.baseUrl.startsWith("http://127.0.0.1") || c.baseUrl.startsWith("http://localhost")) {"请填写完整的 HTTPS Base URL"}
+  require(key.all {it.code in 33..126}) {"API Key 包含无效字符，请检查输入"}
   require(c.model.isNotBlank()) {"请填写模型名称"}
   val base=c.baseUrl.trimEnd('/')
   val system=messages.filter {it.first=="system"}.joinToString("\n") {it.second}

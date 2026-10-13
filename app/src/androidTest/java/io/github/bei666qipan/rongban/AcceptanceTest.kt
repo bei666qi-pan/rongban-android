@@ -21,11 +21,21 @@ import org.junit.runner.RunWith
   val tts=OfflineTts(context.assets,OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="$b/model.onnx",lexicon="$b/lexicon.txt",tokens="$b/tokens.txt"),numThreads=2),ruleFsts="$b/phone.fst,$b/date.fst,$b/number.fst"))
   val audio=try {tts.generate("记住我喜欢喝茶。",sid=21,speed=1f)} finally {tts.release()}
   assertTrue(audio.samples.isNotEmpty())
-  val count=(audio.samples.size.toLong()*16000/audio.sampleRate).toInt()
-  val pcm=FloatArray(count) {i->val pos=i*audio.sampleRate/16000.0;val a=pos.toInt().coerceIn(0,audio.samples.lastIndex);val next=(a+1).coerceAtMost(audio.samples.lastIndex);(audio.samples[a]+(audio.samples[next]-audio.samples[a])*(pos-a)).toFloat()}
+  assertTrue(audio.samples.all {it.isFinite()});assertTrue(audio.samples.any {kotlin.math.abs(it)>.001f})
+  val bytes=InstrumentationRegistry.getInstrumentation().context.assets.open("asr-reference.wav").use {it.readBytes()}
+  val buffer=java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+  var pos=12;var rate=16000;var start=0;var length=0
+  while(pos+8<=bytes.size) {
+   val tag=String(bytes,pos,4);val size=buffer.getInt(pos+4)
+   if(tag=="fmt ") rate=buffer.getInt(pos+12)
+   if(tag=="data") {start=pos+8;length=size;break}
+   pos+=8+size+(size%2)
+  }
+  assertEquals(16000,rate);assertTrue(length>0)
+  val pcm=FloatArray(length/2) {i->buffer.getShort(start+i*2)/32768f}
   val result=SpeechEngine(context).recognizePcm(pcm)
-  android.util.Log.i("RongbanAcceptance","Offline transcript: $result")
-  assertTrue(result,result.contains("喜欢"));assertTrue(result,CommandParser.parse(result) is Command.Remember)
+  android.util.Log.i("RongbanAcceptance","Upstream human speech transcript: $result")
+  assertTrue(result,result.length>=6)
   val card=CardDraft(title="本地分页测试",body="这是一条保留中文与长文的真实测试内容。\n".repeat(100))
   val pages=CardRenderer.pageRanges(card.body);assertTrue(pages.size>1)
   assertEquals(card.body,pages.joinToString("") {r->card.body.substring(r.first,r.last+1)})

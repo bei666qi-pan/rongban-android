@@ -82,7 +82,7 @@ import java.time.format.DateTimeFormatter
       if(conversations.isEmpty()) item {Empty("还没有对话", "从一句问候，或一个语音指令开始。")}
       items(conversations,key={it.id}) {c->NoteCard(c.title,"打开这段相遇",onClick={vm.active.value=c.id;route="chat:${c.id}"}) {TextButton(onClick={deleteConversation=c}) {Text("删除")}}}
      }
-     route.startsWith("chat:") -> ChatPage(route.substringAfter(":"),vm,onBack={vm.stopSpeech();route="chats"},onVoice={listen(route.substringAfter(":"))},onCards={cards()})
+     route.startsWith("chat:") -> ChatPage(route.substringAfter(":"),vm,onBack={vm.stopSpeech();if(vm.busy.value) vm.cancel();route="chats"},onVoice={listen(route.substringAfter(":"))},onCards={cards()})
      route=="memories" -> {
       var query by rememberSaveable {mutableStateOf("")}
       ListPage("记忆小屋","你决定什么值得被记住。",action="添一条",onAction={editingMemory=Memory(title="",content="")}) {
