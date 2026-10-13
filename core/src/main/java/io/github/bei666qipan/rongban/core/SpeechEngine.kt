@@ -20,9 +20,7 @@ class SpeechEngine(private val context:Context) {
  fun stop() { stopped.set(true);runCatching { mic?.stop() };runCatching { track?.pause();track?.flush() } }
  private fun recognizer():OnlineRecognizer {
   val base="models/asr"
-  val hotwords=java.io.File(context.cacheDir,"command-hotwords.txt")
-  hotwords.writeText("记住\n回忆\n专注\n分钟\n卡片\n喜欢\n")
-  return OnlineRecognizer(context.assets,OnlineRecognizerConfig(modelConfig=OnlineModelConfig(transducer=OnlineTransducerModelConfig("$base/encoder.int8.onnx","$base/decoder.onnx","$base/joiner.int8.onnx"),tokens="$base/tokens.txt",numThreads=2,modelingUnit="cjkchar"),decodingMethod="modified_beam_search",hotwordsFile=hotwords.absolutePath,hotwordsScore=3f))
+  return OnlineRecognizer(context.assets,OnlineRecognizerConfig(modelConfig=OnlineModelConfig(transducer=OnlineTransducerModelConfig("$base/encoder.int8.onnx","$base/decoder.onnx","$base/joiner.int8.onnx"),tokens="$base/tokens.txt",numThreads=2,modelingUnit="cjkchar"),decodingMethod="modified_beam_search",hotwordsFile="command-hotwords.txt",hotwordsScore=3f))
  }
  @SuppressLint("MissingPermission")
  suspend fun listen(onPartial:(String)->Unit):String=mutex.withLock { withContext(Dispatchers.Default) {

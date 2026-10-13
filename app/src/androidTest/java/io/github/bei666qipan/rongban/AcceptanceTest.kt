@@ -33,6 +33,7 @@ import org.junit.runner.RunWith
   assertEquals(pages.size,files.size);assertTrue(files.all {it.length()>10000})
   files.forEach {it.delete()}
  }
+ @Test fun recognizerInitializationDoesNotExitProcess()=runBlocking {val c=InstrumentationRegistry.getInstrumentation().targetContext;assertEquals("",SpeechEngine(c).recognizePcm(FloatArray(16000)))}
  @Test fun memoryPersistsAcrossDatabaseReopen()=runBlocking {
   val c=InstrumentationRegistry.getInstrumentation().targetContext
   val name="acceptance-${newId()}.db"
