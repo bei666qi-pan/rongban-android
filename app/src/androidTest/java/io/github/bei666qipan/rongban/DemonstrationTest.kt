@@ -81,7 +81,7 @@ class DemonstrationTest {
   if(save!=null) save.click() else error("System document save action unavailable")
   check(device.wait(Until.hasObject(By.pkg(c.packageName)),20000)) {"Document picker did not return to cards"}
   pause(7);shot("saved-card");click("分享到其他 App")
-  check(device.wait(Until.hasObject(By.pkg("android")),20000)) {"System share chooser did not open"}
+  check(device.wait(Until.hasObject(By.pkg(java.util.regex.Pattern.compile("android|com.android.intentresolver"))),20000)) {"System share chooser did not open"}
   pause(8);shot("system-share");device.pressBack()
   check(device.wait(Until.hasObject(By.pkg(c.packageName)),10000));pause(3)
   ui.onNodeWithTag("card-body").performScrollTo().performTextReplacement((1..65).joinToString("\n") {"第 $it 个小瞬间：停下来，认真看看身边的生活。"})

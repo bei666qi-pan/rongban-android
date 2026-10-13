@@ -29,6 +29,9 @@ import javax.inject.Inject
  private val speech=SpeechEngine(context)
  private var request:Job?=null
  private var voice:Job?=null
+ private var requestVersion=0
+ private var voiceVersion=0
+ private var memoryWork:Job?=null
  private val pendingCommands=mutableMapOf<String,Command.Missing>()
  init {
   viewModelScope.launch {
@@ -43,24 +46,25 @@ import javax.inject.Inject
  fun updatePreferences(block:(Preferences)->Preferences) {viewModelScope.launch {settings.update(block)}}
  fun createConversation(after:(String)->Unit) {viewModelScope.launch {val c=Conversation();dao.put(c);active.value=c.id;after(c.id)}}
  fun removeConversation(c:Conversation) {viewModelScope.launch {dao.deleteConversation(c.id);if(active.value==c.id) active.value=null}}
- fun saveMemory(m:Memory) {viewModelScope.launch {val records=dao.memoryList();val previous=records.firstOrNull {it.id==m.id};val same=records.firstOrNull {it.id!=m.id && it.content.trim()==m.content.trim()};if(same!=null) notify("这件事已经在记忆里了") else {if(previous!=null && previous.kind!="summary" && (previous.content!=m.content || previous.enabled!=m.enabled)) records.filter {it.kind=="summary"}.forEach {dao.deleteMemory(it.id)};dao.put(m.copy(source=if(previous?.pending==true) "AI 提取，用户已确认" else m.source,updated=System.currentTimeMillis()));notify("记忆已保存")}}}
- fun forget(m:Memory) {viewModelScope.launch {dao.deleteMemory(m.id);dao.memoryList().filter {it.kind=="summary"}.forEach {dao.deleteMemory(it.id)};notify("这条记忆已移除，后续相遇不再引用")}}
+ fun saveMemory(m:Memory) {viewModelScope.launch {val records=dao.memoryList();val previous=records.firstOrNull {it.id==m.id};val same=records.firstOrNull {it.id!=m.id && it.content.trim()==m.content.trim()};if(same!=null) notify("这件事已经在记忆里了") else {if(previous!=null && previous.kind!="summary" && (previous.content!=m.content || previous.enabled!=m.enabled)) {memoryWork?.cancel();records.filter {it.kind=="summary"}.forEach {dao.deleteMemory(it.id)}};dao.put(m.copy(source=if(previous?.pending==true) "AI 提取，用户已确认" else m.source,updated=System.currentTimeMillis()));notify("记忆已保存")}}}
+ fun forget(m:Memory) {memoryWork?.cancel();viewModelScope.launch {dao.deleteMemory(m.id);dao.memoryList().filter {it.kind=="summary"}.forEach {dao.deleteMemory(it.id)};notify("这条记忆已移除，后续相遇不再引用")}}
  fun saveSkill(s:Skill) {viewModelScope.launch {dao.put(s);notify("技能已保存")}}
  fun importSkill(content:String) {viewModelScope.launch {runCatching {BuiltinSkills.parse(content)}.onSuccess {dao.put(it);notify("技能已导入")}.onFailure {notify(it.message ?: "技能格式无法识别")}}}
  fun deleteSkill(s:Skill) {viewModelScope.launch {dao.deleteSkill(s.id)}}
  fun saveProvider(config:ProviderConfig,key:String?) {viewModelScope.launch {if(key!=null) credentials.put(config.id,key.trim());settings.update {p->p.copy(providers=p.providers.filterNot {it.id==config.id}+config,activeProvider=config.id)};notify("模型配置已保存")}}
  fun testProvider(config:ProviderConfig,key:String?) {viewModelScope.launch {notify("正在测试连接……");runCatching {ai.complete(config,key ?: credentials.get(config.id),listOf("user" to "请只回复：连接成功。"))}.onSuccess {notify("连接成功：${config.model}")}.onFailure {notify(it.message ?: "连接失败")}}}
- fun cancel() {request?.cancel();busy.value=false;speechState.value="idle";notify("已停止生成")}
- fun stopSpeech() {speech.stop();voice?.cancel();speechState.value="idle"}
+ fun cancel() {requestVersion++;request?.cancel();memoryWork?.cancel();busy.value=false;speechState.value="idle";notify("已停止生成")}
+ fun stopSpeech() {voiceVersion++;speech.stop();voice?.cancel();speechState.value="idle"}
  fun listen(id:String) {
   if(speechState.value=="listening") {speech.stop();return}
   stopSpeech();voiceText.value=""
+  val version=voiceVersion
   voice=viewModelScope.launch {
    speechState.value="preparing"
-   try {val result=speech.listen(onPartial={voiceText.value=it},onStarted={speechState.value="listening"});if(result.isBlank()) notify("没有听清，可以再试一次或输入文字") else {recognizedText.value=result;notify("识别完成，可以编辑后发送")}} catch(e:CancellationException) {throw e} catch(e:Exception) {notify(e.message ?: "语音不可用，请用文字输入")} finally {speechState.value="idle"}
+   try {val result=speech.listen(onPartial={if(version==voiceVersion) voiceText.value=it},onStarted={if(version==voiceVersion) speechState.value="listening"});if(result.isBlank()) notify("没有听清，可以再试一次或输入文字") else {recognizedText.value=result;notify("识别完成，可以编辑后发送")}} catch(e:CancellationException) {throw e} catch(e:Exception) {notify(e.message ?: "语音不可用，请用文字输入")} finally {if(version==voiceVersion) speechState.value="idle"}
   }
  }
- fun speak(text:String) {stopSpeech();voice=viewModelScope.launch {speechState.value="speaking";try {speech.speak(text)} catch(e:CancellationException) {throw e} catch(e:Exception) {notify("朗读暂时不可用，请阅读文字")} finally {speechState.value="idle"}}}
+ fun speak(text:String) {stopSpeech();val version=voiceVersion;voice=viewModelScope.launch {speechState.value="speaking";try {speech.speak(text)} catch(e:CancellationException) {throw e} catch(e:Exception) {notify("朗读暂时不可用，请阅读文字")} finally {if(version==voiceVersion) speechState.value="idle"}}}
  fun startFocus(minutes:Int,label:String) {
   val ends=System.currentTimeMillis()+minutes*60000L
   updatePreferences {it.copy(focusEnds=ends,focusLabel=label)}
@@ -71,8 +75,11 @@ import javax.inject.Inject
  fun saveCard(title:String,body:String,template:String="conversation") {viewModelScope.launch {dao.put(CardDraft(title=title,body=body,template=template));notify("已存为卡片草稿")}}
  fun send(id:String,text:String,chosenSkill:Skill?=null) {
   if(text.isBlank() || busy.value) return
+  stopSpeech();val version=++requestVersion
+  busy.value=true
   request=viewModelScope.launch {
    busy.value=true;speechState.value="thinking"
+   var streamingId:String?=null
    try {
     dao.put(Message(conversationId=id,role="user",content=text.trim()))
     val list=dao.messageList(id).filter {it.state=="complete"}
@@ -92,7 +99,7 @@ import javax.inject.Inject
       val memoryList=dao.memoryList()
       val instruction=when(command) {Command.Review->"根据用户今天的对话做简短回顾。今天的对话："+dao.recentMessages().filter {it.created>=java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()}.reversed().joinToString("\n") {it.content.take(300)};Command.Encourage->"结合用户心情给出温柔具体的鼓励。";else->chosenSkill?.body.orEmpty()}
       val system=MemoryContext.system(pref,memoryList,text,instruction)
-      val responseId=newId();var assembled=""
+      val responseId=newId();streamingId=responseId;var assembled=""
       dao.put(Message(id=responseId,conversationId=id,role="assistant",content="",state="streaming"))
       ai.stream(config,credentials.get(config.id),listOf("system" to system)+list.takeLast(16).map {it.role to it.content.take(2000)}).collect {delta->assembled+=delta;dao.put(Message(id=responseId,conversationId=id,role="assistant",content=assembled,state="streaming"))}
       check(assembled.isNotBlank()) {"模型没有返回文字，请重试"};dao.put(Message(id=responseId,conversationId=id,role="assistant",content=assembled))
@@ -101,11 +108,12 @@ import javax.inject.Inject
      }
     }
     if(dao.messageList(id).lastOrNull()?.role!="assistant") dao.put(Message(conversationId=id,role="assistant",content=response))
-   } catch(e:CancellationException) {withContext(NonCancellable) {dao.messageList(id).lastOrNull()?.takeIf {it.role=="assistant" && it.state=="streaming"}?.let {dao.put(it.copy(content=it.content.ifBlank {"已停止生成。"},state="cancelled"))}};throw e} catch(e:Exception) {val message=e.message ?: "没有完成，请重试";dao.messageList(id).lastOrNull()?.takeIf {it.role=="assistant" && it.state=="streaming"}?.let {dao.put(it.copy(content=it.content.ifBlank {message},state="error"))};notify(message)} finally {busy.value=false;speechState.value="idle"}
+   } catch(e:CancellationException) {withContext(NonCancellable) {dao.messageList(id).firstOrNull {it.id==streamingId && it.state=="streaming"}?.let {dao.put(it.copy(content=it.content.ifBlank {"已停止生成。"},state="cancelled"))}};throw e} catch(e:Exception) {val message=e.message ?: "没有完成，请重试";dao.messageList(id).firstOrNull {it.id==streamingId && it.state=="streaming"}?.let {dao.put(it.copy(content=it.content.ifBlank {message},state="error"))};notify(message)} finally {if(version==requestVersion) {busy.value=false;speechState.value="idle"}}
   }
  }
  private fun extractMemory(id:String,user:String,answer:String) {
-  viewModelScope.launch {
+  memoryWork?.cancel()
+  memoryWork=viewModelScope.launch {
    val pref=settings.flow.first();if(!pref.memoryEnabled) return@launch
    val p=pref.provider()
    runCatching {
@@ -113,11 +121,13 @@ import javax.inject.Inject
     val clean=result.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
     val obj=Json.parseToJsonElement(clean).jsonObject
     val content=obj["content"]?.jsonPrimitive?.contentOrNull.orEmpty().take(1000)
-    if(content.isNotBlank() && dao.memoryList().none {it.content.trim()==content.trim()}) dao.put(Memory(title=obj["title"]?.jsonPrimitive?.contentOrNull ?: content.take(24),content=content,aliases=obj["aliases"]?.jsonPrimitive?.contentOrNull.orEmpty(),source="AI 提取，等待你的确认",sourceConversationId=id,pending=true))
+    currentCoroutineContext().ensureActive()
+    if(content.isNotBlank() && dao.messageList(id).isNotEmpty() && dao.memoryList().none {it.content.trim()==content.trim()}) dao.put(Memory(title=obj["title"]?.jsonPrimitive?.contentOrNull ?: content.take(24),content=content,aliases=obj["aliases"]?.jsonPrimitive?.contentOrNull.orEmpty(),source="AI 提取，等待你的确认",sourceConversationId=id,pending=true))
     val history=dao.messageList(id)
     if(history.count {it.role=="user"}%6==0) {
      val summary=ai.complete(p,credentials.get(p.id),listOf("system" to "把这段对话概括为 150 字以内的情境摘要。只依据真实内容，避免推测。", "user" to history.takeLast(12).joinToString("\n") {it.content.take(600)}))
-     dao.put(Memory(title="最近的一段相遇",content=summary.take(1200),kind="summary",source="对话情境摘要",sourceConversationId=id))
+     currentCoroutineContext().ensureActive()
+     if(dao.messageList(id).isNotEmpty()) dao.put(Memory(title="最近的一段相遇",content=summary.take(1200),kind="summary",source="对话情境摘要，等待你的确认",sourceConversationId=id,pending=true))
     }
    }
   }

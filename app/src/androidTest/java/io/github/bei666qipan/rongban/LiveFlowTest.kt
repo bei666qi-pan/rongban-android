@@ -45,5 +45,7 @@ import java.io.File
   ui.onNodeWithText("分享到其他 App").performScrollTo().performClick()
   Thread.sleep(2000)
   screenshot("system-share")
+  val device=androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+  device.pressBack();Thread.sleep(500);device.pressBack()
  }
 }
