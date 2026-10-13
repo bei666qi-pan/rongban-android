@@ -22,6 +22,7 @@ dependencies {
  implementation("com.squareup.okhttp3:okhttp:4.12.0")
  implementation("com.squareup.okhttp3:okhttp-sse:4.12.0")
  implementation("org.yaml:snakeyaml:2.2")
+ implementation("com.airbnb.android:lottie-compose:6.6.2")
  testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }

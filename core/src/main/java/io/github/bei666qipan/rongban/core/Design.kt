@@ -14,6 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.Alignment
+import com.airbnb.lottie.compose.*
 
 val Sage = Color(0xFF718875)
 val Cream = Color(0xFFFAF7EF)
@@ -26,7 +28,8 @@ val Apricot = Color(0xFFE4AB84)
 @Composable fun Pet(modifier: Modifier = Modifier, state: String = "idle") {
  val transition=rememberInfiniteTransition(label="breathing")
  val breath by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(if(state=="thinking") 700 else 2400),RepeatMode.Reverse),label="breath")
- Canvas(modifier) {
+ Box(modifier) {
+ Canvas(Modifier.fillMaxSize()) {
   val w=size.width;val h=size.height; val b=breath*h*.015f
   drawOval(Color(0xFFD8DED1).copy(alpha=.45f),Offset(w*.18f,h*.82f),Size(w*.64f,h*.10f))
   val fur=Color(0xFFFFF8E9)
@@ -44,5 +47,7 @@ val Apricot = Color(0xFFE4AB84)
   else drawArc(ink,0f,180f,false,Offset(w*.46f,h*.565f+b),Size(w*.08f,h*.065f),style=Stroke(w*.008f))
   drawOval(fur,Offset(w*.26f,h*.77f),Size(w*.19f,h*.09f));drawOval(fur,Offset(w*.55f,h*.77f),Size(w*.19f,h*.09f))
   if(state=="thinking") drawCircle(Sage.copy(alpha=.3f+breath*.4f),w*.025f,Offset(w*.83f,h*.22f))
+ }
+ if(state=="thinking") { val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.thinking));LottieAnimation(composition,iterations=LottieConstants.IterateForever,modifier=Modifier.align(Alignment.TopEnd).size(56.dp)) }
  }
 }

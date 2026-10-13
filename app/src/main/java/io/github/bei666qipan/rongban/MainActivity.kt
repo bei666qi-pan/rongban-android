@@ -25,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -137,7 +138,7 @@ if(m.role=="assistant" && m.content.isNotBlank()) Row {TextButton(onClick={vm.sp
   AnimatedVisibility(speech=="listening") {Text(partial.ifBlank {"正在听，停顿后自动完成，最多 30 秒。"},Modifier.padding(horizontal=20.dp,vertical=8.dp),color=MaterialTheme.colorScheme.primary)}
   if(busy) Row(Modifier.padding(horizontal=20.dp),verticalAlignment=Alignment.CenterVertically) {CircularProgressIndicator(Modifier.size(16.dp),strokeWidth=2.dp);Text(" 绒伴正在回应",Modifier.weight(1f),style=MaterialTheme.typography.labelMedium);TextButton(onClick=vm::cancel) {Text("停止")}}
   Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-   OutlinedTextField(text,{text=it},placeholder={Text("告诉绒伴……")},modifier=Modifier.weight(1f),maxLines=4,shape=RoundedCornerShape(26.dp))
+   OutlinedTextField(text,{text=it},placeholder={Text("告诉绒伴……")},modifier=Modifier.weight(1f).testTag("chat-input"),maxLines=4,shape=RoundedCornerShape(26.dp))
    FilledTonalIconButton(onClick={if(speech=="speaking") vm.stopSpeech() else onVoice()},enabled=!busy) {Text(if(speech=="listening" || speech=="speaking") "■" else "◉")}
    Button(onClick={val value=text;text="";vm.send(id,value)},enabled=text.isNotBlank() && !busy,contentPadding=PaddingValues(12.dp)) {Text("发送")}
   }
@@ -145,7 +146,7 @@ if(m.role=="assistant" && m.content.isNotBlank()) Row {TextButton(onClick={vm.sp
 }
 @Composable private fun MemoryDialog(m:Memory,onDismiss:()->Unit,onSave:(Memory)->Unit) {
  var title by remember {mutableStateOf(m.title)};var body by remember {mutableStateOf(m.content)};var aliases by remember {mutableStateOf(m.aliases)};var enabled by remember {mutableStateOf(m.enabled)}
- AlertDialog(onDismissRequest=onDismiss,title={Text(if(m.title.isBlank()) "添一条记忆" else "记忆详情")},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {OutlinedTextField(title,{title=it},label={Text("标题")});OutlinedTextField(body,{body=it},label={Text("值得记住的内容")},minLines=3);OutlinedTextField(aliases,{aliases=it},label={Text("关键词，以逗号分隔")});Row(verticalAlignment=Alignment.CenterVertically) {Text("参与之后的对话",Modifier.weight(1f));Switch(enabled,{enabled=it})};Text("来源：${m.source}",style=MaterialTheme.typography.labelSmall)}},confirmButton={TextButton(enabled=body.isNotBlank(),onClick={onSave(m.copy(title=title.ifBlank {body.take(24)},content=body,aliases=aliases,enabled=enabled,pending=false))}) {Text("保存")}},dismissButton={TextButton(onClick=onDismiss) {Text("取消")}})
+ AlertDialog(onDismissRequest=onDismiss,title={Text(if(m.title.isBlank()) "添一条记忆" else "记忆详情")},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {OutlinedTextField(title,{title=it},label={Text("标题")});OutlinedTextField(body,{body=it},label={Text("值得记住的内容")},modifier=Modifier.testTag("memory-body"),minLines=3);OutlinedTextField(aliases,{aliases=it},label={Text("关键词，以逗号分隔")});Row(verticalAlignment=Alignment.CenterVertically) {Text("参与之后的对话",Modifier.weight(1f));Switch(enabled,{enabled=it})};Text("来源：${m.source}",style=MaterialTheme.typography.labelSmall)}},confirmButton={TextButton(enabled=body.isNotBlank(),onClick={onSave(m.copy(title=title.ifBlank {body.take(24)},content=body,aliases=aliases,enabled=enabled,pending=false))}) {Text("保存")}},dismissButton={TextButton(onClick=onDismiss) {Text("取消")}})
 }
 @Composable private fun SkillDialog(s:Skill,onDismiss:()->Unit,onSave:(Skill)->Unit,onDelete:()->Unit,onRun:(String)->Unit) {
  var body by remember {mutableStateOf(s.body)};var input by remember {mutableStateOf("")};var enabled by remember {mutableStateOf(s.enabled)}
