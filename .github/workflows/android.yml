@@ -58,7 +58,12 @@ jobs:
       sudo sh -c 'echo KERNEL==\"kvm\", GROUP=\"kvm\", MODE=\"0666\", OPTIONS+=\"static_node=kvm\" > /etc/udev/rules.d/99-kvm4all.rules'
       sudo udevadm control --reload-rules
       sudo udevadm trigger --name-match=kvm
+   - name: Detect device tests
+     id: device_tests
+     run: |
+      if [ -d app/src/androidTest ]; then echo "present=true" >> "$GITHUB_OUTPUT"; fi
    - uses: reactivecircus/android-emulator-runner@v2
+     if: steps.device_tests.outputs.present == 'true'
      with:
       api-level: 35
       target: google_apis
