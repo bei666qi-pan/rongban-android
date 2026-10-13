@@ -1,0 +1,12 @@
+*.iml
+.gradle/
+local.properties
+**/build/
+.DS_Store
+**/src/main/assets/models/
+core/src/main/jniLibs/
+output/
+private/
+*.jks
+*.keystore
+.env*
