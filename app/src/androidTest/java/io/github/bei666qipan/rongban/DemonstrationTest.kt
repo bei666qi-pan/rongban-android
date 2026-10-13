@@ -23,7 +23,8 @@ class DemonstrationTest {
  private fun pause(seconds:Long=5) {Thread.sleep(seconds*1000)}
  private fun click(text:String) {val node=ui.onAllNodesWithText(text).onFirst();runCatching {node.performScrollTo()};node.performClick()}
  private fun shot(name:String) {val dir=File(instrumentation.targetContext.getExternalFilesDir(null),"evidence").apply {mkdirs()};instrumentation.uiAutomation.takeScreenshot()?.let {b->File(dir,"$name.png").outputStream().use {b.compress(Bitmap.CompressFormat.PNG,100,it)};b.recycle()}}
- private fun send(text:String) {ui.onNodeWithTag("chat-input").performTextReplacement(text);click("发送");device.pressBack();pause(3)}
+ private fun hideKeyboard() {if(device.hasObject(By.pkg("com.google.android.inputmethod.latin"))) device.pressBack()}
+ private fun send(text:String) {ui.onNodeWithTag("chat-input").performTextReplacement(text);click("发送");hideKeyboard();pause(3)}
  private fun finishAt(start:Long) {val remaining=168000-(System.currentTimeMillis()-start);if(remaining>0) Thread.sleep(remaining)}
  @Test fun mainAppWalkthrough() {
   assumeTrue(InstrumentationRegistry.getArguments().getString("demo")=="true")
@@ -53,14 +54,14 @@ class DemonstrationTest {
   ui.waitUntil(15000) {ui.onAllNodesWithContentDescription("导出图片预览").fetchSemanticsNodes().isNotEmpty()}
   pause(8);shot("card-preview");click("今日回顾");pause(7);click("记忆便签");pause(7)
   ui.onNodeWithTag("card-title").performScrollTo().performTextReplacement("给未来的自己")
-  device.pressBack();pause(5)
+  hideKeyboard();pause(5)
   ui.onNodeWithTag("card-body").performScrollTo().performTextReplacement("忙碌的时候，也记得给自己一杯茶的时间。\n今天的每一点努力，都值得留下。")
-  device.pressBack();pause(6);click("保存草稿");pause(5);click("保存图片");pause(5)
+  hideKeyboard();pause(6);click("保存草稿");pause(5);click("保存图片");pause(5)
   val save=device.wait(Until.findObject(By.text("SAVE")),5000) ?: device.findObject(By.text("Save"))
   if(save!=null) save.click() else error("System document save action unavailable")
   pause(7);shot("saved-card");click("分享到其他 App");pause(8);shot("system-share");device.pressBack();pause(3)
   ui.onNodeWithTag("card-body").performScrollTo().performTextReplacement((1..65).joinToString("\n") {"第 $it 个小瞬间：停下来，认真看看身边的生活。"})
-  device.pressBack();pause(5)
+  hideKeyboard();pause(5)
   ui.onNodeWithText("下一页").performScrollTo().performClick();pause(8);shot("card-pagination")
   click("保存图片");pause(5);device.pressBack();pause(5)
   click("‹ 工作室");pause(8);finishAt(start)
