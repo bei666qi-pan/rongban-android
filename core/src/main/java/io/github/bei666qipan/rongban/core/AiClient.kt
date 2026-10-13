@@ -3,11 +3,13 @@
 package io.github.bei666qipan.rongban.core
 
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.*
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.sse.*
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -23,7 +25,7 @@ import javax.inject.Singleton
   val source=EventSources.createFactory(client).newEventSource(request,object:EventSourceListener() {
    override fun onEvent(eventSource:EventSource,id:String?,type:String?,data:String) {
     if(data=="[DONE]") {close();return}
-    try {val text=ProtocolAdapter.decode(config.protocol,type,data);if(text.isNotEmpty()) trySend(text)} catch(e:Exception) {close(IllegalStateException("模型响应格式无法识别，请检查协议配置"))}
+    try {val text=ProtocolAdapter.decode(config.protocol,type,data);if(text.isNotEmpty()) trySendBlocking(text)} catch(e:Exception) {close(IllegalStateException("模型响应格式无法识别，请检查协议配置"))}
    }
    override fun onClosed(eventSource:EventSource) {close()}
    override fun onFailure(eventSource:EventSource,t:Throwable?,response:Response?) {
@@ -37,7 +39,8 @@ import javax.inject.Singleton
 object ProtocolAdapter {
  private val json=Json {ignoreUnknownKeys=true}
  fun request(c:ProviderConfig,key:String,messages:List<Pair<String,String>>):Request {
-  require(c.baseUrl.startsWith("https://") || c.baseUrl.startsWith("http://127.0.0.1") || c.baseUrl.startsWith("http://localhost")) {"请填写完整的 HTTPS Base URL"}
+  val endpoint=c.baseUrl.toHttpUrlOrNull()
+  require(endpoint!=null && (endpoint.isHttps || endpoint.host in setOf("127.0.0.1","localhost","::1"))) {"请填写完整的 HTTPS Base URL"}
   require(key.all {it.code in 33..126}) {"API Key 包含无效字符，请检查输入"}
   require(c.model.isNotBlank()) {"请填写模型名称"}
   val base=c.baseUrl.trimEnd('/')

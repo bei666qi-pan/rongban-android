@@ -13,7 +13,7 @@ Android 10 及以上；离线语音支持 ARM64、x86_64。演示环境为 Andro
 ```sh
 python3 scripts/prepare_speech.py
 ./gradlew assembleDebug testDebugUnitTest lintDebug
-./gradlew connectedDebugAndroidTest
+./gradlew :app:connectedDebugAndroidTest
 ```
 
 如本机使用网络代理，可通过 `python3 scripts/build.py assembleDebug` 调用，代理配置不写入仓库。调试设备密钥注入请参阅 `scripts/provision_key.py --help`，仅用于本机联调。

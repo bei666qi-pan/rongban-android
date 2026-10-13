@@ -10,6 +10,19 @@ import okhttp3.mockwebserver.SocketPolicy
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.toList
 class ProtocolTest {
+ @Test fun slowerConsumersReceiveEveryStreamingDelta()=runBlocking {
+  val server=MockWebServer();server.start()
+  try {
+   val body=(1..300).joinToString("") {"data: {\"choices\":[{\"delta\":{\"content\":\"$it,\"}}]}\n\n"}+"data: [DONE]\n\n"
+   server.enqueue(MockResponse().setHeader("Content-Type","text/event-stream").setBody(body))
+   val output=StringBuilder()
+   AiClient().stream(ProviderConfig(baseUrl=server.url("/v1").toString()),"test",listOf("user" to "hello")).collect {delay(3);output.append(it)}
+   assertEquals((1..300).joinToString("") {"$it,"},output.toString())
+  } finally {server.shutdown()}
+ }
+ @Test fun plaintextExceptionIsLimitedToActualLoopbackHosts() {
+  assertThrows(IllegalArgumentException::class.java) {ProtocolAdapter.request(ProviderConfig(baseUrl="http://127.0.0.1.example.com/v1"),"test",listOf("user" to "hello"))}
+ }
  @Test fun cancellationClosesCollectorAndTimeoutRemainsActionable()=runBlocking {
   val server=MockWebServer();server.start()
   try {

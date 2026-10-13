@@ -61,5 +61,10 @@ import org.junit.runner.RunWith
   ui.onAllNodesWithText("保存").onLast().performClick()
   ui.waitUntil(10000) {ui.onAllNodesWithText("主流程 $token").fetchSemanticsNodes().isNotEmpty()}
   ui.onNodeWithText("主流程 $token").assertExists()
+  runBlocking {
+   val c=InstrumentationRegistry.getInstrumentation().targetContext
+   val db=Room.databaseBuilder(c,RongbanDatabase::class.java,"rongban.db").build()
+   try {db.dao().memoryList().filter {it.content=="主流程 $token"}.forEach {db.dao().deleteMemory(it.id)}} finally {db.close()}
+  }
  }
 }
