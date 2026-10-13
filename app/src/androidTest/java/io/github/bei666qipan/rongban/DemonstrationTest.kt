@@ -10,6 +10,7 @@ import androidx.test.uiautomator.*
 import io.github.bei666qipan.rongban.cards.CardActivity
 import io.github.bei666qipan.rongban.core.RongbanDatabase
 import kotlinx.coroutines.runBlocking
+import org.junit.Before
 import org.junit.After
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -24,8 +25,9 @@ class DemonstrationTest {
  private val device get()=UiDevice.getInstance(instrumentation)
  private var scenario:ActivityScenario<out ComponentActivity>?=null
  private val fast get()=InstrumentationRegistry.getArguments().getString("fast")=="true"
+ @Before fun configureUiAutomation() {Configurator.getInstance().waitForIdleTimeout=0;Configurator.getInstance().waitForSelectorTimeout=0}
  @After fun close() {scenario?.close()}
- private fun pause(seconds:Long=5) {Thread.sleep(if(fast) 500 else seconds*1000)}
+ private fun pause(seconds:Long=5) {Thread.sleep(if(fast) 500 else seconds*250)}
  private fun scroll(up:Boolean) {val w=device.displayWidth;val h=device.displayHeight;device.swipe(w-12,if(up) h*8/10 else h*3/10,w-12,if(up) h*3/10 else h*8/10,20);Thread.sleep(300)}
  private fun find(selector:BySelector):UiObject2 {
   device.findObject(selector)?.takeIf {it.visibleBounds.height()>0}?.let {return it}
@@ -38,12 +40,20 @@ class DemonstrationTest {
  private fun shot(name:String) {val dir=File(instrumentation.targetContext.getExternalFilesDir(null),"evidence").apply {mkdirs()};instrumentation.uiAutomation.takeScreenshot()?.let {b->File(dir,"$name.png").outputStream().use {b.compress(Bitmap.CompressFormat.PNG,100,it)};b.recycle()}}
  private fun send(text:String) {field("chat-input",text);click("发送");hideKeyboard();pause(3)}
  private fun finish(start:Long) {if(!fast) {val remaining=165000-(System.currentTimeMillis()-start);if(remaining>0) Thread.sleep(remaining)}}
+ private fun readyToRecord(name:String):Long {
+  if(InstrumentationRegistry.getArguments().getString("record")=="true") {
+   File(instrumentation.targetContext.getExternalFilesDir(null),"record-$name.ready").writeText("ready")
+   Thread.sleep(7000)
+  }
+  return System.currentTimeMillis()
+ }
  @Test fun mainAppWalkthrough() {
   assumeTrue(InstrumentationRegistry.getArguments().getString("demo")=="true")
-  val start=System.currentTimeMillis();val c=instrumentation.targetContext
+  val c=instrumentation.targetContext
   runBlocking {val db=Room.databaseBuilder(c,RongbanDatabase::class.java,"rongban.db").build();try {db.dao().memoryList().filter {it.content.startsWith("主流程 验收记忆-")}.forEach {db.dao().deleteMemory(it.id)}} finally {db.close()}}
   scenario=ActivityScenario.launch(MainActivity::class.java)
   check(device.wait(Until.hasObject(By.text("今天，也陪着你。")),30000))
+  val start=readyToRecord("main")
   shot("home");pause(6);click("有点累");pause(4);click("写点什么")
   send("记住");pause(4);send("我喜欢喝茶，也喜欢猫咪。");pause(5)
   send("回忆喝茶");pause(5);shot("offline-recall");click("朗读");pause(10)
@@ -52,14 +62,16 @@ class DemonstrationTest {
   click("技能");pause(5);shot("skills");click("回忆近况");pause(5);click("使用一次");pause(5);click("‹ 返回")
   click("新的相遇");send("根据你记得的我的偏好，给我一个下午休息的建议。请用一句话回答。")
   check(device.wait(Until.hasObject(By.text("朗读")),90000))
+  check(device.wait(Until.gone(By.textContains("绒伴正在回应")),60000))
+  check(!device.hasObject(By.text("绒伴 · 请求未完成")))
   pause(5);shot("context-chat");click("‹ 返回");click("我的");pause(4);shot("settings")
   click("深色");pause(5);shot("dark-theme");click("浅色");pause(3);click("陪伴");pause(5);finish(start)
  }
  @Test fun independentCardsWalkthrough() {
   assumeTrue(InstrumentationRegistry.getArguments().getString("demo")=="true")
-  val start=System.currentTimeMillis();val c=instrumentation.targetContext
+  val c=instrumentation.targetContext
   scenario=ActivityScenario.launch(CardActivity::class.java)
-  check(device.wait(Until.hasObject(By.text("卡片工作室")),30000));shot("card-studio");pause(7)
+  check(device.wait(Until.hasObject(By.text("卡片工作室")),30000));val start=readyToRecord("cards");shot("card-studio");pause(7)
   click("＋ 从记忆或对话创建");pause(5);click("记忆 · 我喜欢喝茶，也喜欢猫咪")
   check(device.wait(Until.hasObject(By.desc("导出图片预览")),20000));pause(7);shot("card-preview")
   click("今日回顾");pause(5);click("记忆便签");pause(5)
