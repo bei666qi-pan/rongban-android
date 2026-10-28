@@ -1,0 +1,5 @@
+{
+  "url": "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-zh-int8-2025-06-30/resolve/main/test_wavs/0.wav",
+  "sha256": "668bf8df51a10027b84d5d8816a1ce11ae93545538dc05cfe2aa6811d399c250",
+  "purpose": "Unmodified upstream speech recognizer regression fixture"
+}
