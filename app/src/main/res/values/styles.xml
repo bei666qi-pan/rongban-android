@@ -8,5 +8,6 @@
   <item name="android:windowActionModeOverlay">true</item>
   <item name="android:colorAccent">#4E6353</item>
   <item name="android:colorBackground">#FAF7EF</item>
+  <item name="android:windowBackground">#FAF7EF</item>
  </style>
 </resources>

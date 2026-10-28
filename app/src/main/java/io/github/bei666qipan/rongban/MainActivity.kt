@@ -280,7 +280,7 @@ private fun Modifier.clickableRow(onClick: () -> Unit) = clickable(onClick = onC
   while (p.focusEnds > now) { kotlinx.coroutines.delay(1000); now = System.currentTimeMillis() }
  }
  val focusing = p.focusEnds > now
- LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+ LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
   item {
    Row(verticalAlignment = Alignment.CenterVertically) {
     Text("绒伴  /  RONGBAN", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
@@ -292,9 +292,9 @@ private fun Modifier.clickableRow(onClick: () -> Unit) = clickable(onClick = onC
    Text("${p.petName}记得你，也想听听你的今天。", Modifier.padding(top = 6.dp), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
   }
   item {
-   Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), shape = RoundedCornerShape(48.dp, 48.dp, 28.dp, 28.dp)) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 20.dp)) {
-     Pet(Modifier.size(220.dp), if (focusing) "sleep" else state)
+   Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), shape = RoundedCornerShape(40.dp, 40.dp, 24.dp, 24.dp)) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 14.dp)) {
+     Pet(Modifier.size(196.dp), if (focusing) "sleep" else state)
      Text(if (focusing) "安静陪你专注" else "轻轻说一句，我在听。", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
     }
    }
