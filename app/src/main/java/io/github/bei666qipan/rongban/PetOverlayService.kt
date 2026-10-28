@@ -43,7 +43,7 @@ class PetOverlayService:Service() {
   val dp=resources.displayMetrics.density
   val prefs=getSharedPreferences("pet_position",MODE_PRIVATE)
   val params=WindowManager.LayoutParams((88*dp).toInt(),(88*dp).toInt(),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,PixelFormat.TRANSLUCENT).apply { gravity=Gravity.TOP or Gravity.START;x=prefs.getInt("x",0);y=prefs.getInt("y",400) }
-  val image=ImageView(this).apply { setImageResource(R.drawable.ic_pet);contentDescription="绒伴悬浮桌宠，点击互动";background=GradientDrawable().apply {setColor(0xFFDDE8DC.toInt());cornerRadius=48*dp};clipToOutline=true }
+  val image=ImageView(this).apply { setImageResource(R.drawable.ic_pet);contentDescription="绒伴悬浮桌宠，点击互动";background=GradientDrawable().apply {setColor(0xFFDDE8DC.toInt());setStroke((1.5f*dp).toInt(),0xFFB7C2B5.toInt());cornerRadius=48*dp};clipToOutline=true;elevation=6*dp }
   var startX=0;var startY=0;var downX=0f;var downY=0f;var moving=false
   image.setOnTouchListener { _,event ->
    when(event.action) {
