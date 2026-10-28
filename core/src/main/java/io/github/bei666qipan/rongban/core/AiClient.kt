@@ -3,25 +3,31 @@
 package io.github.bei666qipan.rongban.core
 
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.*
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.sse.*
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-@Singleton class AiClient @Inject constructor() {
- private val client=OkHttpClient.Builder().connectTimeout(15,TimeUnit.SECONDS).readTimeout(90,TimeUnit.SECONDS).callTimeout(120,TimeUnit.SECONDS).build()
+@Singleton class AiClient {
+ private val client:OkHttpClient
+ @Inject constructor() {client=OkHttpClient.Builder().connectTimeout(15,TimeUnit.SECONDS).readTimeout(90,TimeUnit.SECONDS).callTimeout(120,TimeUnit.SECONDS).build()}
+ internal constructor(client:OkHttpClient) {this.client=client}
  fun stream(config:ProviderConfig,key:String,messages:List<Pair<String,String>>):Flow<String> = callbackFlow {
   require(key.isNotBlank()) {"请先在「我的」页面填写 API Key"}
   val request=ProtocolAdapter.request(config,key,messages)
-  val source=EventSources.createFactory(client).newEventSource(request,object:EventSourceListener() {
+  // Device proxies must not redirect a loopback model server onto the proxy's own localhost.
+  val transport=if(request.url.host in setOf("127.0.0.1","localhost","::1")) client.newBuilder().proxy(java.net.Proxy.NO_PROXY).build() else client
+  val source=EventSources.createFactory(transport).newEventSource(request,object:EventSourceListener() {
    override fun onEvent(eventSource:EventSource,id:String?,type:String?,data:String) {
     if(data=="[DONE]") {close();return}
-    try {val text=ProtocolAdapter.decode(config.protocol,type,data);if(text.isNotEmpty()) trySend(text)} catch(e:Exception) {close(IllegalStateException("模型响应格式无法识别，请检查协议配置"))}
+    try {val text=ProtocolAdapter.decode(config.protocol,type,data);if(text.isNotEmpty()) trySendBlocking(text)} catch(e:Exception) {close(IllegalStateException("模型响应格式无法识别，请检查协议配置"))}
    }
    override fun onClosed(eventSource:EventSource) {close()}
    override fun onFailure(eventSource:EventSource,t:Throwable?,response:Response?) {
@@ -35,7 +41,9 @@ import javax.inject.Singleton
 object ProtocolAdapter {
  private val json=Json {ignoreUnknownKeys=true}
  fun request(c:ProviderConfig,key:String,messages:List<Pair<String,String>>):Request {
-  require(c.baseUrl.startsWith("https://") || c.baseUrl.startsWith("http://127.0.0.1") || c.baseUrl.startsWith("http://localhost") || c.baseUrl.startsWith("http://localhost")) {"请填写完整的 HTTPS Base URL"}
+  val endpoint=c.baseUrl.toHttpUrlOrNull()
+  require(endpoint!=null && (endpoint.isHttps || endpoint.host in setOf("127.0.0.1","localhost","::1"))) {"请填写完整的 HTTPS Base URL"}
+  require(key.all {it.code in 33..126}) {"API Key 包含无效字符，请检查输入"}
   require(c.model.isNotBlank()) {"请填写模型名称"}
   val base=c.baseUrl.trimEnd('/')
   val system=messages.filter {it.first=="system"}.joinToString("\n") {it.second}
@@ -45,7 +53,7 @@ object ProtocolAdapter {
   when(c.protocol) {
    "anthropic"->{builder.url("$base/messages").header("x-api-key",key).header("anthropic-version","2023-06-01");body=buildJsonObject {put("model",c.model);put("stream",true);put("max_tokens",1024);put("system",system);put("messages",JsonArray(history.map {(role,text)->buildJsonObject {put("role",role);put("content",text)}}))}}
    "gemini"->{builder.url("$base/models/${c.model}:streamGenerateContent?alt=sse").header("x-goog-api-key",key);body=buildJsonObject {put("systemInstruction",buildJsonObject {put("parts",buildJsonArray {add(buildJsonObject {put("text",system)})})});put("contents",JsonArray(history.map {(role,text)->buildJsonObject {put("role",if(role=="assistant") "model" else "user");put("parts",buildJsonArray {add(buildJsonObject {put("text",text)})})}}));put("generationConfig",buildJsonObject {put("maxOutputTokens",1024)})}}
-   else->{builder.url("$base/chat/completions").header("Authorization","Bearer $key");body=buildJsonObject {put("model",c.model);put("stream",true);put("max_tokens",1024);put("messages",JsonArray(messages.map {(role,text)->buildJsonObject {put("role",role);put("content",text)}}));if(c.model.startsWith("mimo-")) put("thinking",buildJsonObject {put("type","disabled")})}}
+   else->{builder.url("$base/chat/completions").header("Authorization","Bearer $key");body=buildJsonObject {put("model",c.model);put("stream",true);if(c.model.startsWith("mimo-")) put("max_completion_tokens",1024) else put("max_tokens",1024);put("messages",JsonArray(messages.map {(role,text)->buildJsonObject {put("role",role);put("content",text)}}));if(c.model.startsWith("mimo-")) put("thinking",buildJsonObject {put("type","disabled")})}}
   }
   return builder.post(body.toString().toRequestBody("application/json".toMediaType())).build()
  }

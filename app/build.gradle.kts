@@ -22,5 +22,8 @@ dependencies {
  androidTestImplementation(platform("androidx.compose:compose-bom:2024.12.01"))
  androidTestImplementation("androidx.compose.ui:ui-test-junit4")
  androidTestImplementation("androidx.test.ext:junit:1.2.1")
+ androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+ androidTestImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+ androidTestImplementation("androidx.room:room-runtime:2.6.1")
  debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

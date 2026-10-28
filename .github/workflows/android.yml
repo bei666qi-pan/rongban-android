@@ -71,7 +71,7 @@ jobs:
       profile: pixel_6
       ram-size: 2048M
       disable-animations: true
-      script: ./gradlew connectedDebugAndroidTest
+      script: ./gradlew :app:connectedDebugAndroidTest
    - uses: actions/upload-artifact@v4
      if: always()
      with:

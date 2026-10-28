@@ -10,3 +10,7 @@ private/
 *.jks
 *.keystore
 .env*
+
+.kotlin/
+private-build/
+.codex-finalizer/
